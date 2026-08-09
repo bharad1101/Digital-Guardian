@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+History | Digital Guardian
+{% endblock %}
+
+
+{% block content %}
+
+
+<div class="dashboard">
+
+
+    <div class="dashboard-header">
+
+        <div>
+
+            <p class="muted">
+                THREAT HISTORY
+            </p>
+
+            <h1>
+                Scan History
+            </h1>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="dashboard-card">
+
+
+        <form
+            method="GET"
+            class="filter-form"
+        >
+
+
+            <select
+                name="channel"
+                class="scanner-select"
+            >
+
+
+                <option value="">
+                    All Channels
+                </option>
+
+
+                <option value="Message">
+                    Message
+                </option>
+
+
+                <option value="WhatsApp">
+                    WhatsApp
+                </option>
+
+
+                <option value="Email">
+                    Email
+                </option>
+
+
+                <option value="Call">
+                    Call
+                </option>
+
+
+                <option value="URL">
+                    URL
+                </option>
+
+
+            </select>
+
+
+
+            <select
+                name="level"
+                class="scanner-select"
+            >
+
+
+                <option value="">
+                    All Threat Levels
+                </option>
+
+
+                <option value="SAFE">
+                    Safe
+                </option>
+
+
+                <option value="LOW RISK">
+                    Low Risk
+                </option>
+
+
+                <option value="SUSPICIOUS">
+                    Suspicious
+                </option>
+
+
+                <option value="HIGH RISK">
+                    High Risk
+                </option>
+
+
+                <option value="CRITICAL">
+                    Critical
+                </option>
+
+
+            </select>
+
+
+
+            <button
+                type="submit"
+                class="primary-button"
+            >
+
+                Apply Filter
+
+            </button>
+
+
+        </form>
+
+
+    </div>
+
+
+
+    <div class="dashboard-card recent">
+
+
+        {% if scans %}
+
+
+            {% for scan in scans %}
+
+
+                <div class="history-item">
+
+
+                    <div class="history-top">
+
+
+                        <div>
+
+                            <strong>
+                                {{ scan.channel }}
+                            </strong>
+
+                            <span class="muted">
+
+                                {{ scan.created_at.strftime(
+                                    "%d %b %Y, %I:%M %p"
+                                ) }}
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="history-risk">
+
+                            {{ scan.risk_score }}/100
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <p>
+
+                        <strong>
+                            Threat:
+                        </strong>
+
+                        {{ scan.threat_type }}
+
+                    </p>
+
+
+
+                    <p>
+
+                        <strong>
+                            Category:
+                        </strong>
+
+                        {{ scan.scam_category }}
+
+                    </p>
+
+
+
+                    <p>
+
+                        <strong>
+                            Level:
+                        </strong>
+
+                        {{ scan.threat_level }}
+
+                    </p>
+
+
+
+                    <p class="history-content">
+
+                        {{ scan.content }}
+
+                    </p>
+
+
+
+                    <p class="muted">
+
+                        {{ scan.recommendation }}
+
+                    </p>
+
+
+                </div>
+
+
+            {% endfor %}
+
+
+        {% else %}
+
+
+            <div class="empty-state">
+
+                <h3>
+                    No scans found
+                </h3>
+
+                <p>
+                    Try changing the filters or analyse new content.
+                </p>
+
+            </div>
+
+
+        {% endif %}
+
+
+    </div>
+
+
+</div>
+
+
+{% endblock %}

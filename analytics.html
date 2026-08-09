@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Analytics | Digital Guardian
+{% endblock %}
+
+
+{% block content %}
+
+
+<div class="dashboard">
+
+
+    <div class="dashboard-header">
+
+
+        <div>
+
+            <p class="muted">
+                THREAT INTELLIGENCE
+            </p>
+
+            <h1>
+                Security Analytics
+            </h1>
+
+        </div>
+
+
+    </div>
+
+
+
+    <div class="stats-grid">
+
+
+        <div class="stat-card">
+
+            <span>
+                TOTAL ANALYSED
+            </span>
+
+            <h2>
+                {{ total_scans }}
+            </h2>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <span>
+                AVERAGE RISK
+            </span>
+
+            <h2>
+                {{ average_risk }}/100
+            </h2>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <span>
+                RISKIEST CHANNEL
+            </span>
+
+            <h2 class="analytics-text">
+                {{ most_risky_channel }}
+            </h2>
+
+        </div>
+
+
+    </div>
+
+
+
+    <div class="analytics-grid">
+
+
+        <div class="dashboard-card">
+
+
+            <h3>
+                Threat Levels
+            </h3>
+
+
+            {% if level_counter %}
+
+
+                {% for name, count in level_counter.items() %}
+
+
+                    <div class="analytics-row">
+
+
+                        <span>
+                            {{ name }}
+                        </span>
+
+
+                        <strong>
+                            {{ count }}
+                        </strong>
+
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <p class="muted">
+                    No data available.
+                </p>
+
+
+            {% endif %}
+
+
+        </div>
+
+
+
+        <div class="dashboard-card">
+
+
+            <h3>
+                Scan Channels
+            </h3>
+
+
+            {% if channel_counter %}
+
+
+                {% for name, count in channel_counter.items() %}
+
+
+                    <div class="analytics-row">
+
+
+                        <span>
+                            {{ name }}
+                        </span>
+
+
+                        <strong>
+                            {{ count }}
+                        </strong>
+
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <p class="muted">
+                    No data available.
+                </p>
+
+
+            {% endif %}
+
+
+        </div>
+
+
+
+        <div class="dashboard-card">
+
+
+            <h3>
+                Scam Categories
+            </h3>
+
+
+            {% if category_counter %}
+
+
+                {% for name, count in category_counter.items() %}
+
+
+                    <div class="analytics-row">
+
+
+                        <span>
+                            {{ name }}
+                        </span>
+
+
+                        <strong>
+                            {{ count }}
+                        </strong>
+
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <p class="muted">
+                    No scam categories detected yet.
+                </p>
+
+
+            {% endif %}
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+{% endblock %}

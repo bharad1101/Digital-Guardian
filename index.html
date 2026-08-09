@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}
+Digital Guardian
+{% endblock %}
+
+
+{% block content %}
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <div class="badge">
+            AI-Powered Cyber Protection
+        </div>
+
+        <h1>
+            Your Personal
+            <span>
+                Digital Guardian
+            </span>
+        </h1>
+
+        <p>
+            Detect scams, phishing, fraud,
+            suspicious links and social
+            engineering threats across
+            multiple communication channels.
+        </p>
+
+        <div class="hero-buttons">
+
+            <a
+                class="primary-button"
+                href="{{ url_for('register') }}"
+            >
+                Get Protected
+            </a>
+
+            <a
+                class="secondary-button"
+                href="{{ url_for('login') }}"
+            >
+                Login
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="features">
+
+    <h2>
+        One Guardian. Multiple Threat Channels.
+    </h2>
+
+    <div class="feature-grid">
+
+        <div class="feature-card">
+            💬
+            <h3>Message Shield</h3>
+            <p>
+                Detect spam, phishing and
+                fraudulent messages.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            🟢
+            <h3>WhatsApp Shield</h3>
+            <p>
+                Analyse suspicious WhatsApp
+                conversations.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            📧
+            <h3>Email Guardian</h3>
+            <p>
+                Identify phishing and
+                impersonation emails.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            📞
+            <h3>Call Guardian</h3>
+            <p>
+                Analyse suspicious call
+                transcripts.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            🔗
+            <h3>URL Shield</h3>
+            <p>
+                Detect suspicious and
+                deceptive links.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            ▦
+            <h3>QR Guardian</h3>
+            <p>
+                Analyse links and payment
+                information hidden in QR codes.
+            </p>
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}
