@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="qr-page">
+
+    <!-- =====================================================
+         GUARDIAN LENS HEADER
+         ===================================================== -->
+
+    <div class="qr-header">
+
+        <span class="qr-badge">
+            GUARDIAN LENS
+        </span>
+
+        <h1>
+            QR Security Scanner
+        </h1>
+
+        <p>
+            Scan a QR code before opening it.
+            Digital Guardian will inspect the QR destination
+            and identify potentially suspicious indicators.
+        </p>
+
+    </div>
+
+
+    <!-- =====================================================
+         QR SCANNER CARD
+         ===================================================== -->
+
+    <div class="qr-scanner-card">
+
+        <!-- =================================================
+             CAMERA AREA
+             ================================================= -->
+
+        <div class="camera-container">
+
+            <video
+                id="qr-video"
+                autoplay
+                muted
+                playsinline
+            ></video>
+
+
+            <!-- Scanner Overlay -->
+
+            <div class="scanner-frame">
+
+                <div class="corner top-left"></div>
+
+                <div class="corner top-right"></div>
+
+                <div class="corner bottom-left"></div>
+
+                <div class="corner bottom-right"></div>
+
+                <div class="scan-line"></div>
+
+            </div>
+
+
+            <!-- Camera Status -->
+
+            <div
+                id="camera-message"
+                class="camera-message"
+            >
+                Camera is ready.
+                Press Start Camera.
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             CAMERA CONTROLS
+             ================================================= -->
+
+        <div class="qr-controls">
+
+            <button
+                id="start-camera"
+                class="primary-button"
+                type="button"
+            >
+                📷 Start Camera
+            </button>
+
+
+            <button
+                id="stop-camera"
+                class="secondary-button"
+                type="button"
+            >
+                Stop Camera
+            </button>
+
+        </div>
+
+
+        <!-- =================================================
+             MANUAL QR ANALYZER
+             ================================================= -->
+
+        <div class="manual-section">
+
+            <h3>
+                Or Test a QR Payload Manually
+            </h3>
+
+            <p>
+                Paste a URL or text extracted from a QR code
+                to analyze it before opening.
+            </p>
+
+
+            <textarea
+                id="manual-payload"
+                placeholder="https://example.com"
+                spellcheck="false"
+            ></textarea>
+
+
+            <button
+                id="analyze-manual"
+                class="primary-button"
+                type="button"
+            >
+                🛡️ Analyze QR
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ANALYSIS RESULT
+         ===================================================== -->
+
+    <div
+        id="qr-result"
+        class="qr-result hidden"
+    >
+
+        <!-- Result Header -->
+
+        <div class="result-header">
+
+            <h2>
+                🛡️ Guardian Analysis
+            </h2>
+
+            <p>
+                Digital Guardian has analyzed the QR payload.
+            </p>
+
+        </div>
+
+
+        <!-- =================================================
+             BASIC INFORMATION
+             ================================================= -->
+
+        <div class="result-grid">
+
+            <!-- Payload Type -->
+
+            <div class="result-item">
+
+                <span>
+                    Payload Type
+                </span>
+
+                <strong id="result-type">
+                    -
+                </strong>
+
+            </div>
+
+
+            <!-- Destination -->
+
+            <div class="result-item">
+
+                <span>
+                    Destination
+                </span>
+
+                <strong id="result-url">
+                    -
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             SECURITY INDICATORS
+             ================================================= -->
+
+        <div class="indicator-section">
+
+            <h3>
+                🔎 Security Indicators
+            </h3>
+
+            <ul id="result-indicators"></ul>
+
+        </div>
+
+
+        <!-- =================================================
+             ACTIONS
+             ================================================= -->
+
+        <div class="qr-actions">
+
+            <button
+                id="open-safe"
+                class="secondary-button"
+                type="button"
+                disabled
+            >
+                🔗 Open Destination
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     GUARDIAN LENS JAVASCRIPT
+     ========================================================= -->
+
+<script
+    src="{{ url_for('static', filename='js/qr-scanner.js') }}"
+></script>
+
+{% endblock %}

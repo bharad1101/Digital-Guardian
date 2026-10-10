@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}
+Hybrid AI Scanner | Digital Guardian
+{% endblock %}
+
+
+{% block content %}
+
+<div class="scanner-page">
+
+    <div class="scanner-card">
+
+        <div class="scanner-icon">
+            🛡
+        </div>
+
+        <h1>
+            Hybrid AI Threat Scanner
+        </h1>
+
+        <p class="muted">
+            Analyse messages, WhatsApp content, emails,
+            call transcripts and suspicious URLs using
+            machine learning and cybersecurity intelligence.
+        </p>
+
+
+        <form method="POST">
+
+            <label>
+                Select Threat Channel
+            </label>
+
+
+            <select
+                name="channel"
+                class="scanner-select"
+                required
+            >
+
+                <option
+                    value="Message"
+                    {% if selected_channel == "Message" %}
+                    selected
+                    {% endif %}
+                >
+                    💬 SMS / Message
+                </option>
+
+
+                <option
+                    value="WhatsApp"
+                    {% if selected_channel == "WhatsApp" %}
+                    selected
+                    {% endif %}
+                >
+                    🟢 WhatsApp
+                </option>
+
+
+                <option
+                    value="Email"
+                    {% if selected_channel == "Email" %}
+                    selected
+                    {% endif %}
+                >
+                    📧 Email
+                </option>
+
+
+                <option
+                    value="Call"
+                    {% if selected_channel == "Call" %}
+                    selected
+                    {% endif %}
+                >
+                    📞 Call Transcript
+                </option>
+
+
+                <option
+                    value="URL"
+                    {% if selected_channel == "URL" %}
+                    selected
+                    {% endif %}
+                >
+                    🔗 URL / Website
+                </option>
+
+            </select>
+
+
+            <label>
+                Enter Suspicious Content
+            </label>
+
+
+            <textarea
+                name="content"
+                class="scanner-input"
+                placeholder="Paste suspicious SMS, WhatsApp message, email, call transcript or URL here..."
+                required
+            >{{ submitted_content }}</textarea>
+
+
+            <button
+                type="submit"
+                class="primary-button full"
+            >
+                Analyse With Hybrid AI
+            </button>
+
+        </form>
+
+
+
+        {% if result %}
+
+        <div class="threat-report">
+
+
+            <div class="report-header">
+
+                <div>
+
+                    <p class="muted">
+                        DIGITAL GUARDIAN ANALYSIS
+                    </p>
+
+                    <h2>
+                        Hybrid AI Threat Report
+                    </h2>
+
+                </div>
+
+
+                <div class="risk-badge">
+
+                    {{ result.threat_level }}
+
+                </div>
+
+            </div>
+
+
+
+            <div class="report-score">
+
+                <span>
+                    Final Guardian Risk
+                </span>
+
+                <strong>
+                    {{ result.risk_score }}/100
+                </strong>
+
+            </div>
+
+
+            <div class="risk-bar">
+
+                <div
+                    class="risk-fill"
+                    style="width: {{ result.risk_score }}%;"
+                ></div>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    AI / ML Prediction
+                </span>
+
+                <strong>
+                    {{ result.ml_prediction }}
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    ML Spam Probability
+                </span>
+
+                <strong>
+                    {{ result.ml_spam_probability }}%
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    Cybersecurity Rule Score
+                </span>
+
+                <strong>
+                    {{ result.rule_score }}/100
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    Final Threat Level
+                </span>
+
+                <strong>
+                    {{ result.threat_level }}
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    Threat Type
+                </span>
+
+                <strong>
+                    {{ result.threat_type }}
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-row">
+
+                <span>
+                    Scam Category
+                </span>
+
+                <strong>
+                    {{ result.scam_category }}
+                </strong>
+
+            </div>
+
+
+
+            <div class="report-section">
+
+                <h3>
+                    🔎 Why Was This Flagged?
+                </h3>
+
+
+                <ul>
+
+                    {% for item in result.indicators %}
+
+                    <li>
+                        ✓ {{ item }}
+                    </li>
+
+                    {% endfor %}
+
+                </ul>
+
+            </div>
+
+
+
+            {% if result.manipulation %}
+
+            <div class="report-section">
+
+                <h3>
+                    🧠 Social Engineering Detected
+                </h3>
+
+
+                <div class="manipulation-tags">
+
+                    {% for item in result.manipulation %}
+
+                    <span>
+                        {{ item }}
+                    </span>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+
+
+            {% if result.urls %}
+
+            <div class="report-section">
+
+                <h3>
+                    🔗 Links Detected
+                </h3>
+
+
+                {% for url in result.urls %}
+
+                <div class="detected-url">
+
+                    {{ url }}
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+            {% endif %}
+
+
+
+            <div
+                class="report-section recommendation-box"
+            >
+
+                <h3>
+                    🛡 Guardian Recommendation
+                </h3>
+
+
+                <p>
+                    {{ result.recommendation }}
+                </p>
+
+            </div>
+
+
+
+            <a
+                href="{{ url_for('dashboard') }}"
+                class="secondary-report-button"
+            >
+                View Updated Dashboard
+            </a>
+
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}
