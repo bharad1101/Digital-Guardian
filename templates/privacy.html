@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Privacy &amp; security | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="page-narrow" style="margin:0 auto">
+<div class="section-head">
+    <p class="eyebrow">Transparency</p>
+    <h1>Privacy &amp; security</h1>
+    <p class="muted">This notice explains what Digital Guardian does with the content you submit.</p>
+</div>
+
+<div class="card">
+    <h2 class="mt-0">What is sent to the server</h2>
+    <ul class="indicator-list">
+        <li>The text, URL or QR payload you paste is sent to the backend so it can be analysed.</li>
+        <li>Images and screenshots you upload are analysed in memory and are <strong>not stored</strong>.</li>
+        <li>Your analysis result (risk score, indicators, recommendations) is stored in your personal
+            history only if you keep history saving enabled.</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>What is not done</h2>
+    <ul class="indicator-list safe">
+        <li>Your clipboard is never monitored or read in the background.</li>
+        <li>Links are never opened automatically.</li>
+        <li>Other apps, private messages or notifications are never read or intercepted.</li>
+        <li>Uploaded images are not retained, resold or used to train models.</li>
+        <li>Secrets, passwords and API keys are kept out of the source code.</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Security controls</h2>
+    <ul class="indicator-list">
+        <li>Passwords are hashed with a salted one-way algorithm.</li>
+        <li>Cookie-authenticated forms are protected against CSRF.</li>
+        <li>Expensive analysis endpoints are rate limited.</li>
+        <li>Uploads are restricted by type and size; user URLs are treated as untrusted.</li>
+        <li>Security headers (CSP, frame protection, MIME sniffing protection) are applied.</li>
+        <li>One user can never access another user’s history.</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Limitations of the analysis</h2>
+    <p class="mb-0">
+        Results are <strong>advisory</strong>. A low score does not guarantee that content is safe,
+        and a high score does not prove malicious intent. The spam classifier is a general SMS
+        model and may be inaccurate for other languages or message types. Remote URL inspection
+        and real-time threat intelligence are only used when explicitly configured with a real
+        provider — the app never claims intelligence it does not have.
+    </p>
+</div>
+</div>
+{% endblock %}

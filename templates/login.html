@@ -1,59 +1,37 @@
 {% extends "base.html" %}
-
-{% block title %}
-Login | Digital Guardian
-{% endblock %}
+{% block title %}Login | Digital Guardian{% endblock %}
 
 {% block content %}
+<div class="auth-wrap">
+    <div class="card auth-card">
+        <div class="auth-icon" aria-hidden="true">🔐</div>
+        <h1>Welcome back</h1>
+        <p class="muted">Access your cybersecurity command center.</p>
 
-<div class="auth-page">
+        <form method="POST" action="{{ url_for('auth.login_page') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    <div class="auth-card">
+            <div class="field">
+                <label for="email">Email address</label>
+                <input id="email" type="email" name="email" autocomplete="email"
+                       placeholder="you@example.com" required>
+            </div>
 
-        <div class="auth-icon">🔐</div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password"
+                       autocomplete="current-password" placeholder="Your password" required>
+            </div>
 
-        <h2>Guardian Login</h2>
+            <div class="checkbox-row">
+                <input id="remember" type="checkbox" name="remember" value="1">
+                <label for="remember">Keep me signed in on this device</label>
+            </div>
 
-        <p class="muted">
-            Access your cybersecurity command center.
-        </p>
-
-        <form method="POST">
-
-            <label>Email Address</label>
-
-            <input
-                type="email"
-                name="email"
-                placeholder="Enter your email"
-                required
-            >
-
-            <label>Password</label>
-
-            <input
-                type="password"
-                name="password"
-                placeholder="Enter password"
-                required
-            >
-
-            <button
-                type="submit"
-                class="primary-button full"
-            >
-                Login
-            </button>
-
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
         </form>
 
-        <p class="auth-bottom">
-            Don't have an account?
-            <a href="{{ url_for('register') }}">Register</a>
-        </p>
-
+        <p class="auth-foot">Don't have an account? <a href="{{ url_for('auth.register_page') }}">Register</a></p>
     </div>
-
 </div>
-
 {% endblock %}

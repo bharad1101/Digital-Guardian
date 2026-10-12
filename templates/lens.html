@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Guardian Lens | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="section-head">
+    <p class="eyebrow">Guardian Lens</p>
+    <h1>QR security scanner</h1>
+    <p class="muted">Scan with a camera, upload or drag an image, or paste a payload manually.
+        The destination is always shown before anything can be opened.</p>
+</div>
+
+<div class="lens-grid">
+    <div class="card">
+        <div class="tabs" role="tablist">
+            <button class="tab-btn active" type="button" data-tab="camera" role="tab">📷 Camera</button>
+            <button class="tab-btn" type="button" data-tab="upload" role="tab">🖼️ Upload</button>
+            <button class="tab-btn" type="button" data-tab="paste" role="tab">⌨️ Paste</button>
+        </div>
+
+        <!-- Camera -->
+        <section class="tab-panel" id="panel-camera" role="tabpanel">
+            <div class="camera-stage">
+                <video id="lens-video" autoplay muted playsinline></video>
+                <div class="scan-frame" aria-hidden="true">
+                    <span class="corner tl"></span><span class="corner tr"></span>
+                    <span class="corner bl"></span><span class="corner br"></span>
+                </div>
+                <div class="camera-status" id="camera-status">Camera is idle. Press “Start camera”.</div>
+            </div>
+            <div class="flex gap-1 wrap mt-2">
+                <button class="btn btn-primary" type="button" id="start-camera">Start camera</button>
+                <button class="btn" type="button" id="stop-camera">Stop</button>
+            </div>
+            <p class="form-hint">
+                Live detection uses your browser’s BarcodeDetector when available and falls back to
+                in-browser decoding. If neither is supported, use Upload or Paste.
+            </p>
+        </section>
+
+        <!-- Upload -->
+        <section class="tab-panel hidden" id="panel-upload" role="tabpanel">
+            <div class="dropzone" id="dropzone" tabindex="0" role="button"
+                 aria-label="Upload or drop an image containing a QR code">
+                <div class="dz-icon" aria-hidden="true">🖼️</div>
+                <p class="mb-0">Drop an image here, or click to choose a file</p>
+                <p class="muted mb-0">PNG, JPG, WEBP · up to 8&nbsp;MB</p>
+            </div>
+            <input type="file" id="lens-file" accept="image/*" class="sr-only">
+            <img id="lens-preview" class="image-preview hidden" alt="Selected image preview">
+            <p class="form-hint">
+                QR codes are decoded in your browser. If no QR is found, you can send the image
+                for text (OCR) analysis.
+            </p>
+            <button class="btn mt-1 hidden" type="button" id="lens-ocr-btn">Analyse this image with OCR</button>
+        </section>
+
+        <!-- Paste -->
+        <section class="tab-panel hidden" id="panel-paste" role="tabpanel">
+            <div class="field">
+                <label for="manual-payload">QR payload or URL</label>
+                <textarea id="manual-payload" spellcheck="false"
+                          placeholder="https://example.com/verify?account=..."></textarea>
+            </div>
+            <div class="flex gap-1 wrap">
+                <button class="btn btn-primary" type="button" id="analyze-manual">Analyse payload</button>
+                <button class="btn" type="button" id="paste-payload">Paste from clipboard</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><h3 class="mt-0 mb-0">Result</h3></div>
+        <div id="lens-result">
+            <div class="empty-state">
+                <div class="es-icon" aria-hidden="true">▦</div>
+                <p class="mb-0">Scan, upload or paste a QR payload to see the security analysis.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vendor/jsQR.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lens.js') }}"></script>
+{% endblock %}

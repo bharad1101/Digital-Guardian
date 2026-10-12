@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "Digital Guardian",
+    "slug": "digital-guardian",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "digitalguardian",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070b18"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.digitalguardian.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Digital Guardian uses the camera only to scan QR codes you point it at.",
+        "NSPhotoLibraryUsageDescription": "Digital Guardian lets you pick a screenshot or image to analyse. Images are sent to your server for analysis and are not saved on disk."
+      }
+    },
+    "android": {
+      "package": "com.digitalguardian.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#070b18",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": [
+            {
+              "scheme": "digitalguardian",
+              "host": "share"
+            }
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Digital Guardian uses the camera only to scan QR codes you point it at."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Digital Guardian lets you pick a screenshot or image to analyse."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:5000"
+    }
+  }
+}

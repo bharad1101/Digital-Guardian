@@ -1,879 +1,282 @@
-# ==========================================================
-# DIGITAL GUARDIAN
-# Main Flask Application
-# ==========================================================
+"""
+Digital Guardian - application factory.
 
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    url_for,
-    flash,
-    jsonify
-)
+Creates the Flask app, wires up extensions, blueprints, security headers,
+error handlers, template helpers and CLI commands.
 
-from flask_sqlalchemy import SQLAlchemy
+Run the development server:
+    venv/bin/flask --app app run --debug
 
-from flask_login import (
-    LoginManager,
-    UserMixin,
-    login_user,
-    logout_user,
-    login_required,
-    current_user
-)
+Run in production (example):
+    venv/bin/gunicorn "app:create_app('production')" -b 0.0.0.0:8000
+"""
 
-from werkzeug.security import (
-    generate_password_hash,
-    check_password_hash
-)
+from __future__ import annotations
 
-from datetime import datetime
-from collections import Counter
+import logging
+from datetime import datetime, timezone
 
-from services.threat_engine import analyze_threat
-from services.qr_analyzer import analyze_qr_payload
+import click
+from flask import Flask, jsonify, render_template, request
+
+from config import ProductionConfig, get_config
+from extensions import csrf, db, limiter, login_manager, migrate
 
 
-# ==========================================================
-# APPLICATION CONFIGURATION
-# ==========================================================
+def create_app(config_name: str | None = None) -> Flask:
+    app = Flask(__name__, instance_relative_config=False)
 
-app = Flask(__name__)
+    config_class = get_config(config_name)
+    app.config.from_object(config_class)
 
-app.config["SECRET_KEY"] = "digital-guardian-secret-key"
+    if config_class is ProductionConfig:
+        ProductionConfig.validate()
 
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "sqlite:///digital_guardian.db"
-)
+    _configure_logging(app)
+    _init_extensions(app)
+    _register_blueprints(app)
+    _register_template_helpers(app)
+    _register_error_handlers(app)
+    _register_security_headers(app)
+    _register_cli(app)
+    _register_user_loader()
 
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-
-# ==========================================================
-# DATABASE
-# ==========================================================
-
-db = SQLAlchemy(app)
-
-
-# ==========================================================
-# LOGIN MANAGER
-# ==========================================================
-
-login_manager = LoginManager()
-
-login_manager.init_app(app)
-
-login_manager.login_view = "login"
-
-login_manager.login_message = (
-    "Please login to access Digital Guardian."
-)
+    return app
 
 
-# ==========================================================
-# USER MODEL
-# ==========================================================
-
-class User(UserMixin, db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    name = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    email = db.Column(
-        db.String(150),
-        unique=True,
-        nullable=False
-    )
-
-    password = db.Column(
-        db.String(255),
-        nullable=False
-    )
-
-    guardian_mode = db.Column(
-        db.Boolean,
-        default=True
-    )
-
-    created_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow
+def _configure_logging(app: Flask) -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
 
-# ==========================================================
-# SCAN MODEL
-# ==========================================================
-
-class Scan(db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("user.id"),
-        nullable=False
-    )
-
-    channel = db.Column(
-        db.String(50),
-        nullable=False
-    )
-
-    content = db.Column(
-        db.Text,
-        nullable=False
-    )
-
-    threat_type = db.Column(
-        db.String(100)
-    )
-
-    scam_category = db.Column(
-        db.String(100)
-    )
-
-    risk_score = db.Column(
-        db.Integer,
-        default=0
-    )
-
-    threat_level = db.Column(
-        db.String(50)
-    )
-
-    recommendation = db.Column(
-        db.Text
-    )
-
-    created_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow
-    )
-
-
-# ==========================================================
-# LOGIN USER LOADER
-# ==========================================================
-
-@login_manager.user_loader
-def load_user(user_id):
-
-    try:
-        user_id = int(user_id)
-    except (TypeError, ValueError):
-        return None
-
-    return db.session.get(
-        User,
-        user_id
-    )
-
-
-# ==========================================================
-# HOME
-# ==========================================================
-
-@app.route("/")
-def home():
-
-    return render_template(
-        "index.html"
-    )
-
-
-# ==========================================================
-# REGISTER
-# ==========================================================
-
-@app.route(
-    "/register",
-    methods=["GET", "POST"]
-)
-def register():
-
-    if current_user.is_authenticated:
-
-        return redirect(
-            url_for("dashboard")
-        )
-
-    if request.method == "POST":
-
-        name = request.form.get(
-            "name",
-            ""
-        ).strip()
-
-        email = request.form.get(
-            "email",
-            ""
-        ).strip().lower()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        confirm_password = request.form.get(
-            "confirm_password",
-            ""
-        )
-
-        if not name:
-
-            flash(
-                "Please enter your name.",
-                "danger"
-            )
-
-            return redirect(
-                url_for("register")
-            )
-
-        if not email:
-
-            flash(
-                "Please enter your email.",
-                "danger"
-            )
-
-            return redirect(
-                url_for("register")
-            )
-
-        if not password:
-
-            flash(
-                "Please enter a password.",
-                "danger"
-            )
-
-            return redirect(
-                url_for("register")
-            )
-
-        if password != confirm_password:
-
-            flash(
-                "Passwords do not match.",
-                "danger"
-            )
-
-            return redirect(
-                url_for("register")
-            )
-
-        existing_user = User.query.filter_by(
-            email=email
-        ).first()
-
-        if existing_user:
-
-            flash(
-                "An account already exists with this email.",
-                "danger"
-            )
-
-            return redirect(
-                url_for("register")
-            )
-
-        hashed_password = generate_password_hash(
-            password
-        )
-
-        user = User(
-            name=name,
-            email=email,
-            password=hashed_password,
-            guardian_mode=True
-        )
-
-        db.session.add(user)
-
-        db.session.commit()
-
-        flash(
-            "Registration successful. Please login.",
-            "success"
-        )
-
-        return redirect(
-            url_for("login")
-        )
-
-    return render_template(
-        "register.html"
-    )
-
-
-# ==========================================================
-# LOGIN
-# ==========================================================
-
-@app.route(
-    "/login",
-    methods=["GET", "POST"]
-)
-def login():
-
-    if current_user.is_authenticated:
-
-        return redirect(
-            url_for("dashboard")
-        )
-
-    if request.method == "POST":
-
-        email = request.form.get(
-            "email",
-            ""
-        ).strip().lower()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        user = User.query.filter_by(
-            email=email
-        ).first()
-
-        if user and check_password_hash(
-            user.password,
-            password
-        ):
-
-            login_user(user)
-
-            flash(
-                "Welcome back to Digital Guardian.",
-                "success"
-            )
-
-            return redirect(
-                url_for("dashboard")
-            )
-
-        flash(
-            "Invalid email or password.",
-            "danger"
-        )
-
-    return render_template(
-        "login.html"
-    )
-
-
-# ==========================================================
-# DASHBOARD
-# ==========================================================
-
-@app.route("/dashboard")
-@login_required
-def dashboard():
-
-    scans = Scan.query.filter_by(
-        user_id=current_user.id
-    ).order_by(
-        Scan.created_at.desc()
-    ).all()
-
-    total_scans = len(scans)
-
-    safe_scans = sum(
-        1
-        for scan in scans
-        if scan.risk_score <= 30
-    )
-
-    suspicious_scans = sum(
-        1
-        for scan in scans
-        if 31 <= scan.risk_score <= 70
-    )
-
-    critical_scans = sum(
-        1
-        for scan in scans
-        if scan.risk_score > 70
-    )
-
-    average_risk = 0
-
-    if total_scans:
-
-        average_risk = round(
-            sum(
-                scan.risk_score
-                for scan in scans
-            ) / total_scans
-        )
-
-    guardian_score = max(
-        0,
-        100 - average_risk
-    )
-
-    channels = [
-        scan.channel
-        for scan in scans
-    ]
-
-    categories = [
-        scan.scam_category
-        for scan in scans
-        if scan.scam_category
-        and scan.scam_category != "None"
-    ]
-
-    most_common_channel = "No data"
-
-    most_common_category = (
-        "No threats detected"
-    )
-
-    if channels:
-
-        most_common_channel = Counter(
-            channels
-        ).most_common(1)[0][0]
-
-    if categories:
-
-        most_common_category = Counter(
-            categories
-        ).most_common(1)[0][0]
-
-    if total_scans == 0:
-
-        conclusion = (
-            "No scans have been analysed yet. "
-            "Use the Digital Guardian scanner to begin "
-            "building your personal cybersecurity profile."
-        )
-
-    elif average_risk <= 20:
-
-        conclusion = (
-            "Your recent scan history shows a low overall "
-            "threat level. Continue verifying unexpected "
-            "links, payment requests, and requests for "
-            "sensitive information."
-        )
-
-    elif average_risk <= 50:
-
-        conclusion = (
-            "Your scan history contains several suspicious "
-            "items. Exercise caution with unexpected "
-            "messages, links, financial requests, and "
-            "unknown senders."
-        )
-
-    elif average_risk <= 70:
-
-        conclusion = (
-            "Digital Guardian has detected a significant "
-            "level of suspicious or high-risk activity. "
-            "Avoid interacting with unverified senders "
-            "and verify sensitive requests independently."
-        )
-
-    else:
-
-        conclusion = (
-            "Your recent scan history contains a high "
-            "concentration of serious threats. Do not "
-            "share OTPs, passwords, banking details, "
-            "or make payments without independent "
-            "verification."
-        )
-
-    return render_template(
-        "dashboard.html",
-        scans=scans[:5],
-        total_scans=total_scans,
-        safe_scans=safe_scans,
-        suspicious_scans=suspicious_scans,
-        critical_scans=critical_scans,
-        average_risk=average_risk,
-        guardian_score=guardian_score,
-        most_common_channel=most_common_channel,
-        most_common_category=most_common_category,
-        conclusion=conclusion
-    )
-
-
-# ==========================================================
-# GUARDIAN MODE
-# ==========================================================
-
-@app.route(
-    "/guardian-mode",
-    methods=["POST"]
-)
-@login_required
-def guardian_mode():
-
-    current_user.guardian_mode = (
-        not current_user.guardian_mode
-    )
-
-    db.session.commit()
-
-    if current_user.guardian_mode:
-
-        flash(
-            "Guardian Mode activated.",
-            "success"
-        )
-
-    else:
-
-        flash(
-            "Guardian Mode paused.",
-            "warning"
-        )
-
-    return redirect(
-        url_for("dashboard")
-    )
-
-
-# ==========================================================
-# MAIN THREAT SCANNER
-# ==========================================================
-
-@app.route(
-    "/scanner",
-    methods=["GET", "POST"]
-)
-@login_required
-def scanner():
-
-    result = None
-
-    submitted_content = ""
-
-    selected_channel = "Message"
-
-    if request.method == "POST":
-
-        selected_channel = request.form.get(
-            "channel",
-            "Message"
-        )
-
-        submitted_content = request.form.get(
-            "content",
-            ""
-        ).strip()
-
-        if not submitted_content:
-
-            flash(
-                "Please enter content to analyse.",
-                "warning"
-            )
-
-            return redirect(
-                url_for("scanner")
-            )
-
-        result = analyze_threat(
-            submitted_content,
-            selected_channel
-        )
-
-        scan = Scan(
-
-            user_id=current_user.id,
-
-            channel=selected_channel,
-
-            content=submitted_content,
-
-            threat_type=result.get(
-                "threat_type",
-                "Unknown"
-            ),
-
-            scam_category=result.get(
-                "scam_category",
-                "None"
-            ),
-
-            risk_score=result.get(
-                "risk_score",
-                0
-            ),
-
-            threat_level=result.get(
-                "threat_level",
-                "UNKNOWN"
-            ),
-
-            recommendation=result.get(
-                "recommendation",
-                ""
-            )
-        )
-
-        db.session.add(scan)
-
-        db.session.commit()
-
-    return render_template(
-        "scanner.html",
-        result=result,
-        submitted_content=submitted_content,
-        selected_channel=selected_channel
-    )
-
-
-# ==========================================================
-# GUARDIAN LENS - QR SCANNER PAGE
-# ==========================================================
-
-@app.route("/qr-scanner")
-@login_required
-def qr_scanner():
-
-    return render_template(
-        "qr_scanner.html"
-    )
-
-
-# ==========================================================
-# GUARDIAN LENS - QR ANALYSIS API
-# ==========================================================
-
-@app.route(
-    "/api/analyze-qr",
-    methods=["POST"]
-)
-@login_required
-def api_analyze_qr():
-
-    data = request.get_json(
-        silent=True
-    ) or {}
-
-    payload = data.get(
-        "payload",
-        ""
-    )
-
-    if not isinstance(payload, str):
-
-        return jsonify({
-            "error": "QR payload must be text."
-        }), 400
-
-    payload = payload.strip()
-
-    if not payload:
-
-        return jsonify({
-            "error": "QR payload is empty."
-        }), 400
-
-    if len(payload) > 10000:
-
-        return jsonify({
-            "error": "QR payload is too large."
-        }), 400
-
-    qr_analysis = analyze_qr_payload(
-        payload
-    )
-
-    return jsonify({
-        "success": True,
-        "qr_analysis": qr_analysis
-    })
-
-
-# ==========================================================
-# HISTORY
-# ==========================================================
-
-@app.route("/history")
-@login_required
-def history():
-
-    channel_filter = request.args.get(
-        "channel",
-        ""
-    )
-
-    level_filter = request.args.get(
-        "level",
-        ""
-    )
-
-    query = Scan.query.filter_by(
-        user_id=current_user.id
-    )
-
-    if channel_filter:
-
-        query = query.filter_by(
-            channel=channel_filter
-        )
-
-    if level_filter:
-
-        query = query.filter_by(
-            threat_level=level_filter
-        )
-
-    scans = query.order_by(
-        Scan.created_at.desc()
-    ).all()
-
-    return render_template(
-        "history.html",
-        scans=scans,
-        channel_filter=channel_filter,
-        level_filter=level_filter
-    )
-
-
-# ==========================================================
-# ANALYTICS
-# ==========================================================
-
-@app.route("/analytics")
-@login_required
-def analytics():
-
-    scans = Scan.query.filter_by(
-        user_id=current_user.id
-    ).all()
-
-    total_scans = len(scans)
-
-    average_risk = 0
-
-    if total_scans:
-
-        average_risk = round(
-            sum(
-                scan.risk_score
-                for scan in scans
-            ) / total_scans
-        )
-
-    channel_counter = Counter(
-        scan.channel
-        for scan in scans
-    )
-
-    category_counter = Counter(
-        scan.scam_category
-        for scan in scans
-        if scan.scam_category
-        and scan.scam_category != "None"
-    )
-
-    level_counter = Counter(
-        scan.threat_level
-        for scan in scans
-    )
-
-    most_risky_channel = "No data"
-
-    if scans:
-
-        channel_scores = {}
-
-        for scan in scans:
-
-            if scan.channel not in channel_scores:
-
-                channel_scores[
-                    scan.channel
-                ] = []
-
-            channel_scores[
-                scan.channel
-            ].append(
-                scan.risk_score
-            )
-
-        channel_averages = {
-
-            channel: round(
-                sum(scores) / len(scores)
-            )
-
-            for channel, scores
-            in channel_scores.items()
+def _init_extensions(app: Flask) -> None:
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    limiter.init_app(app)
+
+
+def _register_user_loader() -> None:
+    from models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return db.session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
+
+
+def _register_blueprints(app: Flask) -> None:
+    from routes.api import api_bp
+    from routes.auth import auth_bp
+    from routes.web import web_bp
+
+    app.register_blueprint(web_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(api_bp)
+
+
+def _register_template_helpers(app: Flask) -> None:
+    from services.threat_engine import level_label as _level_label_fn, normalize_level
+
+    @app.template_filter("dt")
+    def _format_dt(value):
+        if not value:
+            return "-"
+        if isinstance(value, str):
+            return value
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
+
+    @app.template_filter("level_label")
+    def _level_label(value):
+        return _level_label_fn(value)
+
+    @app.template_filter("level_class")
+    def _level_class(value):
+        return {
+            "SAFE": "lvl-safe",
+            "LOW_RISK": "lvl-low",
+            "SUSPICIOUS": "lvl-suspicious",
+            "HIGH_RISK": "lvl-high",
+            "CRITICAL": "lvl-critical",
+        }.get(normalize_level(value), "lvl-unknown")
+
+    @app.template_filter("risk_color")
+    def _risk_color(value):
+        return {
+            "SAFE": "#22c55e",
+            "LOW_RISK": "#84cc16",
+            "SUSPICIOUS": "#f59e0b",
+            "HIGH_RISK": "#f97316",
+            "CRITICAL": "#ef4444",
+        }.get(value, "#38bdf8")
+
+    @app.context_processor
+    def _inject_globals():
+        from services.image_analyzer import ocr_available
+        from services.ml_service import model_status
+
+        def capabilities():
+            try:
+                ml = model_status()
+                return {"ml": ml.get("available", False), "ocr": ocr_available()}
+            except Exception:
+                return {"ml": False, "ocr": False}
+
+        return {
+            "app_version": "1.0.0",
+            "now_year": datetime.now(timezone.utc).year,
+            "capabilities": capabilities,
         }
 
-        most_risky_channel = max(
-            channel_averages,
-            key=channel_averages.get
+
+def _register_error_handlers(app: Flask) -> None:
+    def _wants_json() -> bool:
+        return request.path.startswith("/api/") or (
+            request.accept_mimetypes.best == "application/json"
         )
 
-    return render_template(
-        "analytics.html",
-        total_scans=total_scans,
-        average_risk=average_risk,
-        channel_counter=channel_counter,
-        category_counter=category_counter,
-        level_counter=level_counter,
-        most_risky_channel=most_risky_channel
-    )
+    @app.errorhandler(400)
+    def _bad_request(error):
+        if _wants_json():
+            return jsonify(success=False, error="Bad request", code="bad_request"), 400
+        return render_template("error.html", code=400,
+                               message="The request could not be understood."), 400
+
+    @app.errorhandler(403)
+    def _forbidden(error):
+        if _wants_json():
+            return jsonify(success=False, error="Forbidden", code="forbidden"), 403
+        return render_template("error.html", code=403,
+                               message="You do not have access to this resource."), 403
+
+    @app.errorhandler(404)
+    def _not_found(error):
+        if _wants_json():
+            return jsonify(success=False, error="Not found", code="not_found"), 404
+        return render_template("error.html", code=404,
+                               message="The page you requested was not found."), 404
+
+    @app.errorhandler(413)
+    def _too_large(error):
+        limit_mb = app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)
+        if _wants_json():
+            return jsonify(success=False, error=f"Upload exceeds {limit_mb} MB limit",
+                           code="payload_too_large"), 413
+        return render_template("error.html", code=413,
+                               message=f"The upload exceeds the {limit_mb} MB limit."), 413
+
+    @app.errorhandler(429)
+    def _rate_limited(error):
+        if _wants_json():
+            return jsonify(success=False, error="Too many requests. Please slow down.",
+                           code="rate_limited"), 429
+        return render_template("error.html", code=429,
+                               message="Too many requests. Please wait and try again."), 429
+
+    @app.errorhandler(500)
+    def _server_error(error):  # pragma: no cover - defensive
+        app.logger.exception("Unhandled server error")
+        if _wants_json():
+            return jsonify(success=False, error="Internal server error",
+                           code="server_error"), 500
+        return render_template("error.html", code=500,
+                               message="An internal error occurred."), 500
+
+    from flask_wtf.csrf import CSRFError
+
+    @app.errorhandler(CSRFError)
+    def _csrf_error(error):
+        if _wants_json():
+            return jsonify(success=False, error="CSRF validation failed",
+                           code="csrf_failed"), 400
+        return render_template("error.html", code=400,
+                               message="Your session expired. Please reload the page."), 400
 
 
-# ==========================================================
-# LOGOUT
-# ==========================================================
+def _register_security_headers(app: Flask) -> None:
+    @app.after_request
+    def _set_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(self), microphone=(), geolocation=(), payment=()",
+        )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "img-src 'self' data: blob:; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; "
+            "media-src 'self' blob:; "
+            "font-src 'self'; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'",
+        )
+        if app.config.get("ENV") == "production":
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
 
-@app.route("/logout")
-@login_required
-def logout():
 
-    logout_user()
+def _register_cli(app: Flask) -> None:
+    @app.cli.command("init-db")
+    def init_db():
+        """Create all database tables."""
+        db.create_all()
+        click.echo("Database tables created.")
 
-    flash(
-        "You have been logged out.",
-        "success"
-    )
+    @app.cli.command("purge-scans")
+    @click.option("--days", default=0, help="Delete scans older than N days (0 = use per-user settings).")
+    def purge_scans(days):
+        """Delete old scans according to retention settings."""
+        from models import Scan, User
 
-    return redirect(
-        url_for("home")
-    )
+        cutoff_map = {}
+        if days:
+            from datetime import timedelta
+
+            cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+            cutoff_map[None] = cutoff
+
+        removed = 0
+        for user in User.query.all():
+            settings = user.ensure_settings()
+            retention = days or settings.retention_days or 0
+            if retention <= 0:
+                continue
+            from datetime import timedelta
+
+            cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention)
+            removed += (
+                Scan.query.filter(Scan.user_id == user.id, Scan.created_at < cutoff)
+                .delete(synchronize_session=False)
+            )
+        db.session.commit()
+        click.echo(f"Removed {removed} scans.")
 
 
-# ==========================================================
-# START APPLICATION
-# ==========================================================
+# Module-level app for `flask --app app run` and WSGI servers.
+app = create_app()
+
 
 if __name__ == "__main__":
+    import os
 
     with app.app_context():
-
         db.create_all()
-
-    app.run(
-        debug=True,
-        port=5000
-    )
+        app.logger.info("Digital Guardian starting (debug=%s)", app.debug)
+    app.run(host=os.getenv("HOST", "127.0.0.1"),
+            port=int(os.getenv("PORT", 5000)), debug=app.debug)

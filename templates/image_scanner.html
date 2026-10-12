@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Image analysis | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="section-head">
+    <p class="eyebrow">Image &amp; screenshot analysis</p>
+    <h1>Inspect an image or screenshot</h1>
+    <p class="muted">Upload a screenshot or photo. Digital Guardian extracts any QR code and text
+        (OCR), then analyses what it finds. Images are not stored by the app.</p>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="dropzone" id="img-dropzone" tabindex="0" role="button"
+             aria-label="Upload or drop an image file">
+            <div class="dz-icon" aria-hidden="true">🖼️</div>
+            <p class="mb-0">Drop an image here, or click to choose a file</p>
+            <p class="muted mb-0">PNG, JPG, WEBP, GIF, BMP · up to 8&nbsp;MB</p>
+        </div>
+        <input type="file" id="img-file" accept="image/*" class="sr-only">
+        <img id="img-preview" class="image-preview hidden" alt="Selected image preview">
+        <div class="flex gap-1 wrap mt-2">
+            <button class="btn btn-primary" type="button" id="img-analyze" disabled>Analyse image</button>
+            <button class="btn btn-ghost" type="button" id="img-clear" disabled>Clear</button>
+        </div>
+        <p class="form-hint">
+            {% if capabilities().ocr %}
+                OCR is available on this server.
+            {% else %}
+                OCR is not configured on this server; only QR decoding and metadata checks will run.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><h3 class="mt-0 mb-0">Result</h3></div>
+        <div id="img-result">
+            <div class="empty-state">
+                <div class="es-icon" aria-hidden="true">🖼️</div>
+                <p class="mb-0">Choose an image to see the analysis.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vendor/jsQR.js') }}"></script>
+<script src="{{ url_for('static', filename='js/image-scanner.js') }}"></script>
+{% endblock %}

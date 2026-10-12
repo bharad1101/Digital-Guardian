@@ -1,264 +1,110 @@
 {% extends "base.html" %}
-
-
-{% block title %}
-History | Digital Guardian
-{% endblock %}
-
+{% block title %}History | Digital Guardian{% endblock %}
 
 {% block content %}
-
-
-<div class="dashboard">
-
-
-    <div class="dashboard-header">
-
-        <div>
-
-            <p class="muted">
-                THREAT HISTORY
-            </p>
-
-            <h1>
-                Scan History
-            </h1>
-
-        </div>
-
+<div class="section-head flex between center wrap">
+    <div>
+        <p class="eyebrow">Threat history</p>
+        <h1 class="mb-0">Scan history</h1>
     </div>
-
-
-
-    <div class="dashboard-card">
-
-
-        <form
-            method="GET"
-            class="filter-form"
-        >
-
-
-            <select
-                name="channel"
-                class="scanner-select"
-            >
-
-
-                <option value="">
-                    All Channels
-                </option>
-
-
-                <option value="Message">
-                    Message
-                </option>
-
-
-                <option value="WhatsApp">
-                    WhatsApp
-                </option>
-
-
-                <option value="Email">
-                    Email
-                </option>
-
-
-                <option value="Call">
-                    Call
-                </option>
-
-
-                <option value="URL">
-                    URL
-                </option>
-
-
-            </select>
-
-
-
-            <select
-                name="level"
-                class="scanner-select"
-            >
-
-
-                <option value="">
-                    All Threat Levels
-                </option>
-
-
-                <option value="SAFE">
-                    Safe
-                </option>
-
-
-                <option value="LOW RISK">
-                    Low Risk
-                </option>
-
-
-                <option value="SUSPICIOUS">
-                    Suspicious
-                </option>
-
-
-                <option value="HIGH RISK">
-                    High Risk
-                </option>
-
-
-                <option value="CRITICAL">
-                    Critical
-                </option>
-
-
-            </select>
-
-
-
-            <button
-                type="submit"
-                class="primary-button"
-            >
-
-                Apply Filter
-
-            </button>
-
-
-        </form>
-
-
-    </div>
-
-
-
-    <div class="dashboard-card recent">
-
-
-        {% if scans %}
-
-
-            {% for scan in scans %}
-
-
-                <div class="history-item">
-
-
-                    <div class="history-top">
-
-
-                        <div>
-
-                            <strong>
-                                {{ scan.channel }}
-                            </strong>
-
-                            <span class="muted">
-
-                                {{ scan.created_at.strftime(
-                                    "%d %b %Y, %I:%M %p"
-                                ) }}
-
-                            </span>
-
-                        </div>
-
-
-                        <div class="history-risk">
-
-                            {{ scan.risk_score }}/100
-
-                        </div>
-
-
-                    </div>
-
-
-
-                    <p>
-
-                        <strong>
-                            Threat:
-                        </strong>
-
-                        {{ scan.threat_type }}
-
-                    </p>
-
-
-
-                    <p>
-
-                        <strong>
-                            Category:
-                        </strong>
-
-                        {{ scan.scam_category }}
-
-                    </p>
-
-
-
-                    <p>
-
-                        <strong>
-                            Level:
-                        </strong>
-
-                        {{ scan.threat_level }}
-
-                    </p>
-
-
-
-                    <p class="history-content">
-
-                        {{ scan.content }}
-
-                    </p>
-
-
-
-                    <p class="muted">
-
-                        {{ scan.recommendation }}
-
-                    </p>
-
-
-                </div>
-
-
-            {% endfor %}
-
-
-        {% else %}
-
-
-            <div class="empty-state">
-
-                <h3>
-                    No scans found
-                </h3>
-
-                <p>
-                    Try changing the filters or analyse new content.
-                </p>
-
-            </div>
-
-
-        {% endif %}
-
-
-    </div>
-
-
+    {% if pagination.total %}
+    <form method="POST" action="{{ url_for('web.delete_all_scans') }}"
+          onsubmit="return confirm('Delete your entire scan history? This cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">Delete all history</button>
+    </form>
+    {% endif %}
 </div>
 
+<div class="card mb-2">
+    <form method="GET" action="{{ url_for('web.history') }}" class="filter-bar">
+        <div>
+            <label for="q" class="label">Search</label>
+            <input id="q" type="text" name="q" value="{{ search }}" placeholder="Message, threat, category…">
+        </div>
+        <div>
+            <label for="type" class="label">Input type</label>
+            <select id="type" name="type">
+                <option value="">All types</option>
+                {% for value in ['text','url','qr','image','screenshot'] %}
+                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ value|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="level" class="label">Threat level</label>
+            <select id="level" name="level">
+                <option value="">All levels</option>
+                {% for value in ['SAFE','LOW_RISK','SUSPICIOUS','HIGH_RISK','CRITICAL'] %}
+                    <option value="{{ value }}" {% if level_filter == value %}selected{% endif %}>{{ value | level_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="sort" class="label">Sort</label>
+            <select id="sort" name="sort">
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+                <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                <option value="risk" {% if sort == 'risk' %}selected{% endif %}>Highest risk</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+</div>
 
+<div class="card">
+    <p class="muted">{{ pagination.total }} result{{ '' if pagination.total == 1 else 's' }}</p>
+
+    {% if scans %}
+        {% for scan in scans %}
+        <div class="history-item">
+            <div class="history-top">
+                <div>
+                    <strong>{{ scan.input_type|capitalize }} · {{ scan.channel }}</strong>
+                    <div class="muted">{{ scan.created_at | dt }}</div>
+                </div>
+                <div class="flex center gap-1">
+                    <span class="risk-badge {{ scan.threat_level | level_class }}">{{ scan.threat_level | level_label }}</span>
+                    <span class="risk-badge">{{ scan.risk_score }}/100</span>
+                </div>
+            </div>
+
+            <div class="history-excerpt">{{ scan.content }}</div>
+
+            <div class="flex between center wrap gap-1">
+                <span class="muted">
+                    {{ scan.threat_type or '—' }}
+                    {% if scan.scam_category and scan.scam_category != 'None' %} · {{ scan.scam_category }}{% endif %}
+                </span>
+                <span class="flex gap-1">
+                    <a class="btn btn-sm" href="{{ url_for('web.result_detail', scan_id=scan.id) }}">View</a>
+                    <form method="POST" action="{{ url_for('web.delete_scan', scan_id=scan.id) }}"
+                          onsubmit="return confirm('Delete this scan?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if pagination.pages > 1 %}
+        <nav class="pagination" aria-label="History pages">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('web.history', page=pagination.prev_num, q=search, type=type_filter, level=level_filter, sort=sort) }}">Previous</a>
+            {% endif %}
+            <span class="current">Page {{ pagination.page }} / {{ pagination.pages }}</span>
+            {% if pagination.has_next %}
+                <a href="{{ url_for('web.history', page=pagination.next_num, q=search, type=type_filter, level=level_filter, sort=sort) }}">Next</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <div class="es-icon" aria-hidden="true">📭</div>
+            <p>No scans match your filters yet.</p>
+            <a class="btn btn-primary" href="{{ url_for('web.scanner') }}">Analyse content</a>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

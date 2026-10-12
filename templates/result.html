@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_result.html" import result_panel %}
+{% block title %}Analysis result | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="section-head flex between center wrap">
+    <div>
+        <p class="eyebrow">Stored analysis</p>
+        <h1 class="mb-0">{{ scan.input_type|capitalize }} · {{ scan.channel }}</h1>
+        <p class="muted mb-0">{{ scan.created_at | dt }}</p>
+    </div>
+    <a class="btn" href="{{ url_for('web.history') }}">Back to history</a>
+</div>
+
+{{ result_panel(scan) }}
+
+<form method="POST" action="{{ url_for('web.delete_scan', scan_id=scan.id) }}"
+      class="mt-2" onsubmit="return confirm('Delete this scan?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-danger btn-sm">Delete this scan</button>
+</form>
+{% endblock %}

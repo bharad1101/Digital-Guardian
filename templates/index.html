@@ -1,121 +1,71 @@
 {% extends "base.html" %}
-
-{% block title %}
-Digital Guardian
-{% endblock %}
-
+{% block title %}Digital Guardian — Inspect before you trust{% endblock %}
 
 {% block content %}
-
 <section class="hero">
-
-    <div class="hero-content">
-
-        <div class="badge">
-            AI-Powered Cyber Protection
+    <div class="hero-grid">
+        <div>
+            <span class="pill">Personal cybersecurity assistant</span>
+            <h1>Inspect suspicious content <span class="grad">before you trust it</span>.</h1>
+            <p class="lead">
+                Digital Guardian analyses messages, URLs, QR codes, screenshots and images,
+                explains the risks in plain language, and recommends safe actions — without
+                ever opening links for you or reading your private data.
+            </p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ url_for('auth.register_page') }}">Get protected</a>
+                <a class="btn" href="{{ url_for('auth.login_page') }}">Login</a>
+            </div>
+            <p class="muted mt-2">Privacy-first · Explainable risk scoring · No automatic link opening</p>
         </div>
 
-        <h1>
-            Your Personal
-            <span>
-                Digital Guardian
-            </span>
-        </h1>
-
-        <p>
-            Detect scams, phishing, fraud,
-            suspicious links and social
-            engineering threats across
-            multiple communication channels.
-        </p>
-
-        <div class="hero-buttons">
-
-            <a
-                class="primary-button"
-                href="{{ url_for('register') }}"
-            >
-                Get Protected
-            </a>
-
-            <a
-                class="secondary-button"
-                href="{{ url_for('login') }}"
-            >
-                Login
-            </a>
-
+        <div class="hero-art" aria-hidden="true">
+            <div class="row"><span class="dot bad"></span><span>SMS · “Your account is suspended, verify now”</span></div>
+            <div class="row"><span class="dot warn"></span><span>QR · points to an IP-literal destination</span></div>
+            <div class="row"><span class="dot safe"></span><span>Email · no known fraud indicators</span></div>
+            <div class="row"><span class="dot warn"></span><span>URL · url shortener hides the destination</span></div>
         </div>
-
     </div>
-
 </section>
 
-
-<section class="features">
-
-    <h2>
-        One Guardian. Multiple Threat Channels.
-    </h2>
-
-    <div class="feature-grid">
-
-        <div class="feature-card">
-            💬
-            <h3>Message Shield</h3>
-            <p>
-                Detect spam, phishing and
-                fraudulent messages.
-            </p>
-        </div>
-
-        <div class="feature-card">
-            🟢
-            <h3>WhatsApp Shield</h3>
-            <p>
-                Analyse suspicious WhatsApp
-                conversations.
-            </p>
-        </div>
-
-        <div class="feature-card">
-            📧
-            <h3>Email Guardian</h3>
-            <p>
-                Identify phishing and
-                impersonation emails.
-            </p>
-        </div>
-
-        <div class="feature-card">
-            📞
-            <h3>Call Guardian</h3>
-            <p>
-                Analyse suspicious call
-                transcripts.
-            </p>
-        </div>
-
-        <div class="feature-card">
-            🔗
-            <h3>URL Shield</h3>
-            <p>
-                Detect suspicious and
-                deceptive links.
-            </p>
-        </div>
-
-        <div class="feature-card">
-            ▦
-            <h3>QR Guardian</h3>
-            <p>
-                Analyse links and payment
-                information hidden in QR codes.
-            </p>
-        </div>
-
+<section class="grid grid-4" aria-label="Capabilities">
+    <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Message &amp; SMS analysis</h3>
+        <p>Rule-based indicators plus a trained spam classifier flag fraud, urgency and credential theft.</p>
     </div>
-
+    <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>URL analysis</h3>
+        <p>Passive inspection of domain structure, IP literals, shorteners, punycode and deceptive patterns.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">▦</div>
+        <h3>Guardian Lens QR</h3>
+        <p>Scan, upload, drag-and-drop or paste a QR payload and review it before anything opens.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🖼️</div>
+        <h3>Image &amp; screenshot</h3>
+        <p>Pull QR codes and text out of screenshots and images, then analyse what was found.</p>
+    </div>
 </section>
 
+<section class="card mt-3">
+    <h2 class="mt-0">How it works</h2>
+    <div class="grid grid-3">
+        <div>
+            <h3 class="mb-0">1 · Capture</h3>
+            <p class="muted mb-0">Paste a message, scan or upload a QR code, or import a screenshot.</p>
+        </div>
+        <div>
+            <h3 class="mb-0">2 · Analyse</h3>
+            <p class="muted mb-0">The shared engine scores risk, lists evidence and separates rules from ML.</p>
+        </div>
+        <div>
+            <h3 class="mb-0">3 · Act safely</h3>
+            <p class="muted mb-0">Get clear recommendations. Output is advisory, never a guarantee.</p>
+        </div>
+    </div>
+</section>
 {% endblock %}

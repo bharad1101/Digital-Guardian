@@ -1,0 +1,120 @@
+{% macro result_panel(r) %}
+{#- Renders a consistent analysis result. `r` is a dict-like with the
+    standard response schema (works for live results and stored scans). -#}
+<div class="card result-panel mt-2">
+    <div class="result-head">
+        <div class="score-ring"
+             style="--score: {{ r.get('risk_score', 0) }}; --ring-color: {{ r.get('threat_level') | risk_color }};">
+            <div class="score-num">{{ r.get('risk_score', 0) }}</div>
+            <div class="score-sub">/ 100 RISK</div>
+        </div>
+        <div class="result-meta">
+            <span class="risk-badge {{ r.get('threat_level') | level_class }}">
+                {{ r.get('threat_level') | level_label }}
+            </span>
+            <div class="threat-type">{{ r.get('threat_type') or 'Analysis' }}</div>
+            {% if r.get('scam_category') and r.get('scam_category') != 'None' %}
+                <div class="muted">Category: {{ r.get('scam_category') }}</div>
+            {% endif %}
+            {% if r.get('created_at') %}
+                <div class="muted">Analysed: {{ r.get('created_at') }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="kv mt-2">
+        <div class="kv-item">
+            <div class="k">Threat level</div>
+            <div class="v">{{ r.get('threat_level') | level_label }}</div>
+        </div>
+        <div class="kv-item">
+            <div class="k">Rule score</div>
+            <div class="v">{{ r.get('rule_score', 0) }} / 100</div>
+        </div>
+        <div class="kv-item">
+            <div class="k">ML prediction</div>
+            <div class="v">{{ (r.get('ml_prediction') or 'Unknown') if r.get('ml_available') else 'Unavailable' }}</div>
+        </div>
+        <div class="kv-item">
+            <div class="k">ML spam probability</div>
+            <div class="v">
+                {% if r.get('ml_available') %}
+                    {{ '%.1f'|format(r.get('ml_spam_probability') or 0) }}%
+                {% else %}n/a{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if r.get('explanation') %}
+        <div class="callout mt-2"><strong>Why this result: </strong>{{ r.get('explanation') }}</div>
+    {% endif %}
+
+    {% if r.get('payload') and r.get('payload', {}).get('url') %}
+        <h3 class="mt-2 mb-0">QR destination</h3>
+        <code class="detected-url">{{ r.get('payload', {}).get('url') }}</code>
+    {% endif %}
+
+    {% if r.get('indicators') %}
+        <h3 class="mt-2 mb-0">Security indicators</h3>
+        <ul class="indicator-list warn">
+            {% for item in r.get('indicators') %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if r.get('manipulation') %}
+        <h3 class="mt-2 mb-0">Social-engineering techniques</h3>
+        <div class="chips">
+            {% for item in r.get('manipulation') %}
+                <span class="chip">{{ item }}</span>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if r.get('urls') %}
+        <h3 class="mt-2 mb-0">Links detected</h3>
+        {% for url in r.get('urls') %}
+            <code class="detected-url">{{ url }}</code>
+        {% endfor %}
+    {% endif %}
+
+    {% if r.get('image') %}
+        {% set img = r.get('image') %}
+        <h3 class="mt-2 mb-0">Image analysis</h3>
+        <div class="kv">
+            <div class="kv-item"><div class="k">Dimensions</div>
+                <div class="v">{{ img.get('width') or '?' }} × {{ img.get('height') or '?' }}</div></div>
+            <div class="kv-item"><div class="k">QR decode</div>
+                <div class="v">{{ img.get('sources', {}).get('qr', {}).get('status', 'not run') }}</div></div>
+            <div class="kv-item"><div class="k">OCR</div>
+                <div class="v">{{ img.get('sources', {}).get('ocr', {}).get('status', 'not run') }}</div></div>
+            <div class="kv-item"><div class="k">Basis</div>
+                <div class="v">Automatic analysis (advisory)</div></div>
+        </div>
+        {% if img.get('qr_payload') %}
+            <code class="detected-url">QR: {{ img.get('qr_payload') }}</code>
+        {% endif %}
+    {% endif %}
+
+    {% if r.get('recommendations') %}
+        <div class="callout mt-2">
+            <strong>Recommended actions</strong>
+            <ul class="indicator-list safe">
+                {% for rec in r.get('recommendations') %}
+                    <li>{{ rec }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    {% if r.get('uncertainty') %}
+        <p class="muted mt-2 mb-0"><strong>Limitations: </strong>{{ r.get('uncertainty') }}</p>
+    {% endif %}
+
+    <div class="flex gap-1 wrap mt-2">
+        <button type="button" class="btn btn-sm" data-copy-summary>Copy summary</button>
+    </div>
+    <script type="application/json" class="dg-result-json">{{ r | tojson }}</script>
+</div>
+{% endmacro %}

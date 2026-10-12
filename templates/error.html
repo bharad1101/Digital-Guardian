@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }} | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="code">{{ code }}</div>
+    <h1>Something went wrong</h1>
+    <p class="muted">{{ message }}</p>
+    <a class="btn btn-primary" href="{{ url_for('web.home') }}">Return home</a>
+</div>
+{% endblock %}

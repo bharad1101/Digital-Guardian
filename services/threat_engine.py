@@ -1,857 +1,433 @@
-import os
+"""
+Digital Guardian - Threat analysis engine.
+
+Combines two sources of evidence:
+
+1. A deterministic, rule-based indicator engine (explainable, auditable).
+2. A machine-learning spam classifier (see services/ml_service.py).
+
+Scoring method (documented and deterministic)
+---------------------------------------------
+  * Each rule signal contributes a fixed number of *rule points* and a
+    human readable indicator. Signals are additive and each distinct
+    indicator is counted once.
+  * ``rule_score`` = min(sum of rule points, 100).
+  * ``risk_score`` = round(0.65 * rule_score + 0.35 * ml_spam_probability)
+    with documented safety overrides for high-confidence ML spam and for
+    explicit credential-theft patterns.
+  * ``risk_score`` is always clamped to the 0-100 range and mapped to a
+    threat level:
+
+        <= 20  SAFE
+        <= 40  LOW_RISK
+        <= 60  SUSPICIOUS
+        <= 80  HIGH_RISK
+         > 80  CRITICAL
+
+The engine never declares content "safe" as a guarantee: low scores carry
+an explicit uncertainty note.
+"""
+
+from __future__ import annotations
+
 import re
-import joblib
 
-
-MODEL_FILE = "ml/spam_model.pkl"
-
-
-# =========================================================
-# LOAD TRAINED ML MODEL
-# =========================================================
-
-if os.path.exists(MODEL_FILE):
-
-    ml_model = joblib.load(
-        MODEL_FILE
-    )
-
-else:
-
-    ml_model = None
-
-
-# =========================================================
-# MACHINE LEARNING PREDICTION
-# =========================================================
-
-def get_ml_prediction(text):
-
-    if ml_model is None:
-
-        return {
-            "prediction": "UNKNOWN",
-            "spam_probability": 0.0
-        }
-
-
-    prediction = ml_model.predict(
-        [text]
-    )[0]
-
-
-    probabilities = ml_model.predict_proba(
-        [text]
-    )[0]
-
-
-    classes = ml_model.classes_
-
-
-    probability_map = dict(
-        zip(
-            classes,
-            probabilities
-        )
-    )
-
-
-    spam_probability = float(
-        probability_map.get(
-            "spam",
-            0
-        ) * 100
-    )
-
-
-    return {
-        "prediction": str(
-            prediction
-        ).upper(),
-
-        "spam_probability": round(
-            spam_probability,
-            2
-        )
-    }
-
-
-# =========================================================
-# MAIN HYBRID THREAT ENGINE
-# =========================================================
-
-def analyze_threat(content, channel):
-
-    text = content.lower().strip()
-
-    rule_score = 0
-
-    indicators = []
-
-    manipulation = []
-
-    scam_category = "Unknown"
-
-    threat_type = "Safe / Low Risk"
-
-
-    # =====================================================
-    # MACHINE LEARNING ANALYSIS
-    # =====================================================
-
-    ml_result = get_ml_prediction(
-        content
-    )
-
-
-    ml_prediction = ml_result[
-        "prediction"
-    ]
-
-
-    ml_spam_probability = ml_result[
-        "spam_probability"
-    ]
-
-
-    # =====================================================
-    # URGENCY DETECTION
-    # =====================================================
-
-    urgency_words = [
-        "urgent",
-        "immediately",
-        "act now",
-        "verify now",
-        "today",
-        "within 24 hours",
-        "last chance",
-        "hurry",
-        "expires",
-        "suspended",
-        "blocked",
-        "right now",
-        "limited time"
-    ]
-
-
-    if any(
-        word in text
-        for word in urgency_words
-    ):
-
-        rule_score += 8
-
-        indicators.append(
-            "Urgency language detected"
-        )
-
-        manipulation.append(
-            "Urgency"
-        )
-
-
-    # =====================================================
-    # SENSITIVE INFORMATION DETECTION
-    # =====================================================
-
-    sensitive_words = [
-        "otp",
-        "password",
-        "upi pin",
-        "pin number",
-        "cvv",
-        "card number",
-        "bank details",
-        "account number",
-        "debit card",
-        "credit card"
-    ]
-
-
-    for word in sensitive_words:
-
-        if word in text:
-
-            rule_score += 30
-
-            indicators.append(
-                f"Requests sensitive information: {word}"
-            )
-
-            scam_category = (
-                "Credential Theft"
-            )
-
-            threat_type = (
-                "Phishing / Fraud"
-            )
-
-            break
-
-
-    # =====================================================
-    # BANK / KYC IMPERSONATION
-    # =====================================================
-
-    bank_words = [
-        "bank",
-        "sbi",
-        "hdfc",
-        "icici",
-        "axis bank",
-        "account blocked",
-        "account suspended",
-        "kyc",
-        "bank account",
-        "banking services"
-    ]
-
-
-    if any(
-        word in text
-        for word in bank_words
-    ):
-
-        rule_score += 15
-
-        indicators.append(
-            "Possible banking impersonation detected"
-        )
-
-        manipulation.append(
-            "Authority Impersonation"
-        )
-
-        scam_category = (
-            "Bank / KYC Scam"
-        )
-
-        threat_type = (
-            "Financial Fraud"
-        )
-
-
-    # =====================================================
-    # PAYMENT / UPI SCAM
-    # =====================================================
-
-    payment_words = [
-        "upi",
-        "scan qr",
-        "payment",
-        "send money",
-        "transfer money",
-        "processing fee",
-        "registration fee",
-        "refund",
-        "pay now",
-        "payment link",
-        "send ₹",
-        "send rs"
-    ]
-
-
-    if any(
-        word in text
-        for word in payment_words
-    ):
-
-        rule_score += 15
-
-        indicators.append(
-            "Financial or payment request detected"
-        )
-
-        if scam_category == "Unknown":
-
-            scam_category = (
-                "Payment / UPI Scam"
-            )
-
-        threat_type = (
-            "Financial Fraud"
-        )
-
-
-    # =====================================================
-    # JOB SCAM DETECTION
-    # =====================================================
-
-    job_words = [
-        "job offer",
-        "selected for job",
-        "registration fee",
-        "work from home",
-        "earn money",
-        "guaranteed salary",
-        "interview fee",
-        "hiring immediately",
-        "easy income"
-    ]
-
-
-    if any(
-        word in text
-        for word in job_words
-    ):
-
-        rule_score += 20
-
-        indicators.append(
-            "Possible fake job opportunity detected"
-        )
-
-        scam_category = (
-            "Job Scam"
-        )
-
-        threat_type = (
-            "Fraud"
-        )
-
-
-    # =====================================================
-    # LOTTERY / PRIZE SCAM
-    # =====================================================
-
-    prize_words = [
-        "you won",
-        "winner",
-        "lottery",
-        "free prize",
-        "claim reward",
-        "cash prize",
-        "congratulations",
-        "lucky winner",
-        "claim prize"
-    ]
-
-
-    if any(
-        word in text
-        for word in prize_words
-    ):
-
-        rule_score += 20
-
-        indicators.append(
-            "Prize or lottery bait detected"
-        )
-
-        scam_category = (
-            "Lottery / Prize Scam"
-        )
-
-        threat_type = (
-            "Fraud"
-        )
-
-
-    # =====================================================
-    # FEAR MANIPULATION
-    # =====================================================
-
-    fear_words = [
-        "police",
-        "legal action",
-        "arrest",
-        "account closed",
-        "disconnected",
-        "penalty",
-        "fine",
-        "blocked",
-        "case registered",
-        "warrant"
-    ]
-
-
-    if any(
-        word in text
-        for word in fear_words
-    ):
-
-        rule_score += 12
-
-        indicators.append(
-            "Fear-based manipulation detected"
-        )
-
-        manipulation.append(
-            "Fear"
-        )
-
-
-    # =====================================================
-    # REWARD / GREED MANIPULATION
-    # =====================================================
-
-    reward_words = [
-        "free money",
-        "cash reward",
-        "bonus",
-        "free gift",
-        "reward",
-        "prize",
-        "earn instantly"
-    ]
-
-
-    if any(
-        word in text
-        for word in reward_words
-    ):
-
-        rule_score += 8
-
-        indicators.append(
-            "Reward-based manipulation detected"
-        )
-
-        manipulation.append(
-            "Reward / Greed"
-        )
-
-
-    # =====================================================
-    # URL DETECTION
-    # =====================================================
-
-    urls = re.findall(
-        r"https?://[^\s]+|www\.[^\s]+",
-        text
-    )
-
-
+from services.ml_service import predict as ml_predict
+from services.url_analyzer import analyze_url
+
+URL_REGEX = re.compile(r"(?:https?://|www\.)[^\s<>\"')]+", re.IGNORECASE)
+
+RISK_LEVELS = [
+    (20, "SAFE"),
+    (40, "LOW_RISK"),
+    (60, "SUSPICIOUS"),
+    (80, "HIGH_RISK"),
+    (100, "CRITICAL"),
+]
+
+LEVEL_LABELS = {
+    "SAFE": "Safe",
+    "LOW_RISK": "Low Risk",
+    "SUSPICIOUS": "Suspicious",
+    "HIGH_RISK": "High Risk",
+    "CRITICAL": "Critical",
+}
+
+
+def score_to_level(score: int) -> str:
+    for threshold, level in RISK_LEVELS:
+        if score <= threshold:
+            return level
+    return "CRITICAL"
+
+
+def normalize_level(value) -> str:
+    """Normalise a stored level to canonical form (tolerant of legacy values)."""
+    if not value:
+        return ""
+    return str(value).strip().replace(" ", "_").upper()
+
+
+def level_label(value) -> str:
+    """Human-readable label for any stored/legacy level value."""
+    key = normalize_level(value)
+    return LEVEL_LABELS.get(key, value or "Unknown")
+
+
+RULES = {
+    "urgency": (
+        8,
+        [
+            "urgent", "immediately", "act now", "verify now", "within 24 hours",
+            "last chance", "hurry", "expires", "suspended", "blocked",
+            "right now", "limited time", "final notice", "act fast",
+        ],
+        "Urgency or deadline pressure language detected",
+        "Urgency",
+    ),
+    "credentials": (
+        30,
+        ["otp", "password", "upi pin", "pin number", "cvv", "card number",
+         "bank details", "account number", "debit card", "credit card",
+         "one time password", "security code"],
+        "Requests sensitive credentials (OTP, PIN, password, card data)",
+        "Credential Theft",
+    ),
+    "bank": (
+        15,
+        ["bank", "sbi", "hdfc", "icici", "axis bank", "account blocked",
+         "account suspended", "kyc", "bank account", "netbanking",
+         "banking services"],
+        "Possible banking / authority impersonation",
+        "Authority Impersonation",
+    ),
+    "payment": (
+        15,
+        ["upi", "scan qr", "send money", "transfer money", "processing fee",
+         "registration fee", "refund", "pay now", "payment link", "send ₹",
+         "send rs", "gift card", "wire transfer", "crypto wallet"],
+        "Financial or payment request detected",
+        None,
+    ),
+    "job": (
+        20,
+        ["job offer", "selected for job", "registration fee", "work from home",
+         "earn money", "guaranteed salary", "interview fee",
+         "hiring immediately", "easy income", "part time job"],
+        "Possible fake job / employment opportunity",
+        "Greed",
+    ),
+    "prize": (
+        20,
+        ["you won", "winner", "lottery", "free prize", "claim reward",
+         "cash prize", "congratulations", "lucky winner", "claim prize"],
+        "Prize or lottery bait detected",
+        "Reward / Greed",
+    ),
+    "fear": (
+        12,
+        ["police", "legal action", "arrest", "account closed", "disconnected",
+         "penalty", "fine", "case registered", "warrant", "court notice"],
+        "Fear-based manipulation detected",
+        "Fear",
+    ),
+    "reward": (
+        8,
+        ["free money", "cash reward", "bonus", "free gift", "reward",
+         "earn instantly", "double your money"],
+        "Reward-based manipulation detected",
+        "Reward / Greed",
+    ),
+    "secrecy": (
+        10,
+        ["do not tell", "keep this confidential", "don't tell anyone",
+         "between us", "secret"],
+        "Request for secrecy detected",
+        "Isolation",
+    ),
+}
+
+CHANNEL_PHRASES = {
+    "email": (
+        15,
+        ["dear customer", "verify your account", "account suspended",
+         "click below", "confirm identity", "security alert",
+         "unusual activity", "dear user"],
+        "Common phishing email pattern detected",
+        "Email Phishing",
+    ),
+    "call": (
+        20,
+        ["calling from your bank", "share the otp", "customer care",
+         "remote access", "download app", "screen sharing",
+         "install application", "share your screen", "anydesk", "teamviewer"],
+        "Suspicious call / remote-access behaviour detected",
+        "Voice Fraud",
+    ),
+    "whatsapp": (
+        12,
+        ["whatsapp support", "verify whatsapp", "whatsapp account",
+         "account banned", "whatsapp team"],
+        "Possible WhatsApp impersonation detected",
+        None,
+    ),
+}
+
+
+def extract_urls(text: str) -> list[str]:
+    return URL_REGEX.findall(text or "")
+
+
+def _signal(model_score_category: str, points: int, indicator: str) -> dict:
+    return {"points": points, "indicator": indicator, "category": model_score_category}
+
+
+def analyze_threat(content: str, channel: str = "Message") -> dict:
+    """Run the full hybrid analysis on text / a URL / a message."""
+    text = (content or "").strip()
+    lower = text.lower()
+    channel_key = (channel or "Message").lower()
+
+    rule_points = 0
+    indicators: list[str] = []
+    manipulation: list[str] = []
+    scam_category = "None"
+    threat_type = "No Major Threat Detected"
+    evidence: list[dict] = []
+
+    def add_indicator(message: str) -> None:
+        if message not in indicators:
+            indicators.append(message)
+
+    def add_manipulation(name: str) -> None:
+        if name not in manipulation:
+            manipulation.append(name)
+
+    # ---------------------------------------------------------------- rules
+    for key, (points, terms, message, category) in RULES.items():
+        matched = [t for t in terms if t in lower]
+        if matched:
+            rule_points += points
+            add_indicator(message)
+            evidence.append({
+                "type": "rule",
+                "code": key,
+                "detail": message,
+                "matched_terms": matched[:5],
+            })
+            if category in {"Urgency", "Authority Impersonation", "Fear",
+                            "Reward / Greed", "Isolation", "Greed"}:
+                add_manipulation(category)
+            if key == "credentials":
+                scam_category = "Credential Theft"
+                threat_type = "Phishing / Fraud"
+            elif key == "bank" and scam_category == "None":
+                scam_category = "Bank / KYC Scam"
+                threat_type = "Financial Fraud"
+            elif key == "payment" and scam_category == "None":
+                scam_category = "Payment / UPI Scam"
+                threat_type = "Financial Fraud"
+            elif key == "job":
+                scam_category = "Job Scam"
+                threat_type = "Fraud"
+            elif key == "prize":
+                scam_category = "Lottery / Prize Scam"
+                threat_type = "Fraud"
+
+    # Channel-specific phrasing.
+    phrase_rule = CHANNEL_PHRASES.get(channel_key)
+    if phrase_rule:
+        points, terms, message, cat = phrase_rule
+        matched = [t for t in terms if t in lower]
+        if matched:
+            rule_points += points
+            add_indicator(message)
+            evidence.append({
+                "type": "rule",
+                "code": f"channel:{channel_key}",
+                "detail": message,
+                "matched_terms": matched[:5],
+            })
+            if cat and scam_category == "None":
+                scam_category = cat
+                threat_type = cat
+
+    if channel_key == "whatsapp" and "forwarded" in lower:
+        rule_points += 5
+        add_indicator("Forwarded WhatsApp content detected")
+        evidence.append({"type": "rule", "code": "whatsapp_forwarded",
+                         "detail": "Forwarded WhatsApp content"})
+
+    # ---------------------------------------------------------------- URLs
+    urls = extract_urls(text)
+    url_reports = []
     if urls:
+        rule_points += 10
+        add_indicator("Contains one or more links")
+        for url in urls[:5]:
+            report = analyze_url(url)
+            url_reports.append(report)
+            rule_points += report["risk_points"]
+            for message in report["indicators"]:
+                add_indicator(f"Link: {message}")
+            if report["risk_points"] >= 20 and scam_category == "None":
+                scam_category = "Suspicious Link"
+                threat_type = "Malicious URL"
+            evidence.append({
+                "type": "url",
+                "url": url,
+                "risk_points": report["risk_points"],
+                "indicators": report["indicators"],
+                "passive_only": True,
+            })
 
-        rule_score += 10
+    # URL-only channel (single URL submitted directly).
+    if channel_key == "url" and not urls and text:
+        report = analyze_url(text)
+        url_reports.append(report)
+        rule_points += report["risk_points"]
+        for message in report["indicators"]:
+            add_indicator(f"Link: {message}")
+        if report["risk_points"] >= 20:
+            scam_category = "Suspicious Link"
+            threat_type = "Malicious URL"
+        evidence.append({"type": "url", "url": text,
+                         "risk_points": report["risk_points"],
+                         "indicators": report["indicators"], "passive_only": True})
+        urls = [text]
 
-        indicators.append(
-            "Contains one or more links"
-        )
+    rule_score = min(rule_points, 100)
 
+    # ---------------------------------------------------------------- ML
+    ml = ml_predict(content)
+    ml_prob = ml["spam_probability"] if ml["available"] else 0.0
+    if ml["available"]:
+        evidence.append({
+            "type": "ml",
+            "detail": f"Classifier prediction: {ml['prediction']} "
+                      f"({ml_prob:.1f}% spam probability)",
+            "spam_probability": ml_prob,
+        })
 
-    suspicious_url_terms = [
-        "login",
-        "verify",
-        "secure",
-        "update",
-        "free",
-        "bonus",
-        "wallet",
-        "bank",
-        "kyc",
-        "account",
-        "claim"
-    ]
+    risk_score = round(0.65 * rule_score + 0.35 * ml_prob)
 
+    if ml.get("available"):
+        if ml_prob >= 95:
+            risk_score = max(risk_score, 70)
+        elif ml_prob >= 85:
+            risk_score = max(risk_score, 65)
 
-    for url in urls:
+    if any(term in lower for term in ("otp", "password", "cvv", "upi pin", "pin number")):
+        risk_score = max(risk_score, 75)
+        if any(term in lower for term in ("bank", "sbi", "hdfc", "icici", "axis", "account")):
+            risk_score = max(risk_score, 85)
 
-        if any(
-            term in url
-            for term in suspicious_url_terms
-        ):
+    risk_score = min(max(risk_score, 0), 100)
+    threat_level = score_to_level(risk_score)
 
-            rule_score += 10
+    if threat_level == "SAFE":
+        threat_type = "No Major Threat Detected"
+        scam_category = "None"
 
-            indicators.append(
-                "Suspicious URL characteristics detected"
-            )
-
-            break
-
-
-    # =====================================================
-    # WHATSAPP ANALYSIS
-    # =====================================================
-
-    if channel.lower() == "whatsapp":
-
-        if "forwarded" in text:
-
-            rule_score += 5
-
-            indicators.append(
-                "Forwarded WhatsApp content detected"
-            )
-
-
-        whatsapp_terms = [
-            "whatsapp support",
-            "verify whatsapp",
-            "whatsapp account",
-            "account banned"
-        ]
-
-
-        if any(
-            term in text
-            for term in whatsapp_terms
-        ):
-
-            rule_score += 12
-
-            indicators.append(
-                "Possible WhatsApp impersonation detected"
-            )
-
-
-    # =====================================================
-    # EMAIL PHISHING
-    # =====================================================
-
-    if channel.lower() == "email":
-
-        email_phrases = [
-            "dear customer",
-            "verify your account",
-            "account suspended",
-            "click below",
-            "confirm identity",
-            "security alert",
-            "unusual activity"
-        ]
-
-
-        if any(
-            phrase in text
-            for phrase in email_phrases
-        ):
-
-            rule_score += 15
-
-            indicators.append(
-                "Common phishing email pattern detected"
-            )
-
-            threat_type = (
-                "Email Phishing"
-            )
-
-
-    # =====================================================
-    # CALL TRANSCRIPT ANALYSIS
-    # =====================================================
-
-    if channel.lower() == "call":
-
-        call_phrases = [
-            "calling from your bank",
-            "share the otp",
-            "customer care",
-            "remote access",
-            "download app",
-            "screen sharing",
-            "install application",
-            "share your screen"
-        ]
-
-
-        if any(
-            phrase in text
-            for phrase in call_phrases
-        ):
-
-            rule_score += 20
-
-            indicators.append(
-                "Suspicious call behaviour detected"
-            )
-
-            scam_category = (
-                "Call Impersonation Scam"
-            )
-
-            threat_type = (
-                "Voice Fraud"
-            )
-
-
-    # =====================================================
-    # URL-ONLY CHANNEL
-    # =====================================================
-
-    if channel.lower() == "url":
-
-        if urls:
-
-            if len(text) < 200:
-
-                rule_score += 5
-
-
-        suspicious_domains = [
-            ".xyz",
-            ".top",
-            ".click",
-            ".loan",
-            ".work",
-            ".support"
-        ]
-
-
-        if any(
-            domain in text
-            for domain in suspicious_domains
-        ):
-
-            rule_score += 15
-
-            indicators.append(
-                "Potentially suspicious domain extension detected"
-            )
-
-            scam_category = (
-                "Suspicious Website"
-            )
-
-            threat_type = (
-                "Possible Phishing URL"
-            )
-
-
-    # =====================================================
-    # LIMIT RULE SCORE
-    # =====================================================
-
-    rule_score = min(
-        rule_score,
-        100
+    # ---------------------------------------------------------- explanations
+    recommendations = _recommendations_for(threat_level, url_reports)
+    explanation, uncertainty = _build_explanation(
+        threat_level, rule_score, ml, indicators, url_reports
     )
-
-
-    # =====================================================
-    # HYBRID AI RISK SCORE
-    # =====================================================
-
-    hybrid_score = round(
-
-        (
-            rule_score * 0.65
-        )
-
-        +
-
-        (
-            ml_spam_probability * 0.35
-        )
-
-    )
-
-
-    # =====================================================
-    # SAFETY OVERRIDES
-    # =====================================================
-
-    if ml_spam_probability >= 85:
-
-        hybrid_score = max(
-            hybrid_score,
-            65
-        )
-
-
-    if ml_spam_probability >= 95:
-
-        hybrid_score = max(
-            hybrid_score,
-            70
-        )
-
-
-    credential_terms = [
-        "otp",
-        "password",
-        "cvv",
-        "upi pin"
-    ]
-
-
-    if any(
-        word in text
-        for word in credential_terms
-    ):
-
-        hybrid_score = max(
-            hybrid_score,
-            75
-        )
-
-
-    if (
-        any(word in text for word in credential_terms)
-        and
-        any(word in text for word in bank_words)
-    ):
-
-        hybrid_score = max(
-            hybrid_score,
-            85
-        )
-
-
-    hybrid_score = min(
-        hybrid_score,
-        100
-    )
-
-
-    # =====================================================
-    # THREAT LEVEL
-    # =====================================================
-
-    if hybrid_score <= 20:
-
-        threat_level = "SAFE"
-
-    elif hybrid_score <= 40:
-
-        threat_level = "LOW RISK"
-
-    elif hybrid_score <= 60:
-
-        threat_level = "SUSPICIOUS"
-
-    elif hybrid_score <= 80:
-
-        threat_level = "HIGH RISK"
-
-    else:
-
-        threat_level = "CRITICAL"
-
-
-    # =====================================================
-    # SAFE DEFAULT
-    # =====================================================
-
-    if hybrid_score <= 20:
-
-        threat_type = (
-            "No Major Threat Detected"
-        )
-
-        scam_category = (
-            "None"
-        )
-
-
-        if not indicators:
-
-            indicators.append(
-                "No major fraud indicators were detected"
-            )
-
-
-    # =====================================================
-    # ADD ML EXPLANATION
-    # =====================================================
-
-    if ml_prediction == "SPAM":
-
-        indicators.append(
-            "Machine learning model classified this content as spam"
-        )
-
-
-    elif ml_prediction == "HAM":
-
-        indicators.append(
-            "Machine learning model classified this content as normal"
-        )
-
-
-    # =====================================================
-    # REMOVE DUPLICATES
-    # =====================================================
-
-    manipulation = list(
-        dict.fromkeys(
-            manipulation
-        )
-    )
-
-
-    indicators = list(
-        dict.fromkeys(
-            indicators
-        )
-    )
-
-
-    # =====================================================
-    # SECURITY RECOMMENDATION
-    # =====================================================
-
-    if threat_level == "CRITICAL":
-
-        recommendation = (
-            "Do not respond, click links, share credentials, "
-            "send money, or provide OTP/PIN information. "
-            "Verify the sender through an official channel."
-        )
-
-
-    elif threat_level == "HIGH RISK":
-
-        recommendation = (
-            "Avoid interacting with this content until the "
-            "sender, link, phone number, or request has been "
-            "independently verified."
-        )
-
-
-    elif threat_level == "SUSPICIOUS":
-
-        recommendation = (
-            "Proceed carefully and verify the source before "
-            "sharing personal information or making any payment."
-        )
-
-
-    elif threat_level == "LOW RISK":
-
-        recommendation = (
-            "Some potentially suspicious characteristics were detected. "
-            "Verify the sender if the request is unexpected."
-        )
-
-
-    else:
-
-        recommendation = (
-            "No major threat was detected. Continue following "
-            "normal cybersecurity precautions."
-        )
-
-
-    # =====================================================
-    # RETURN COMPLETE ANALYSIS
-    # =====================================================
 
     return {
-
-        "risk_score": hybrid_score,
-
+        "risk_score": risk_score,
         "rule_score": rule_score,
-
-        "ml_prediction": ml_prediction,
-
-        "ml_spam_probability": ml_spam_probability,
-
         "threat_level": threat_level,
-
         "threat_type": threat_type,
-
         "scam_category": scam_category,
-
+        "ml_prediction": ml["prediction"],
+        "ml_spam_probability": ml["spam_probability"],
+        "ml_available": ml["available"],
         "indicators": indicators,
-
+        "recommendations": recommendations,
         "manipulation": manipulation,
-
-        "recommendation": recommendation,
-
-        "urls": urls
+        "urls": urls,
+        "url_reports": url_reports,
+        "evidence": evidence,
+        "explanation": explanation,
+        "uncertainty": uncertainty,
     }
+
+
+def _recommendations_for(threat_level: str, url_reports: list[dict]) -> list[str]:
+    base = {
+        "CRITICAL": [
+            "Do not respond, click links, share OTP/PIN/passwords, or send money.",
+            "Verify the sender through an official channel you look up yourself.",
+            "If you already shared credentials, change them and contact your bank immediately.",
+        ],
+        "HIGH_RISK": [
+            "Avoid interacting with this content until the sender and any links are independently verified.",
+            "Do not enter passwords or payment details on pages reached from this message.",
+        ],
+        "SUSPICIOUS": [
+            "Proceed carefully and verify the source before sharing personal information or paying.",
+            "Treat unexpected requests as untrusted until confirmed.",
+        ],
+        "LOW_RISK": [
+            "Some potentially suspicious characteristics were detected. Verify the sender if the request was unexpected.",
+        ],
+        "SAFE": [
+            "No major threat indicators were detected. Continue following normal cybersecurity precautions.",
+            "Never share OTPs, PINs or passwords even if a message appears legitimate.",
+        ],
+    }[threat_level]
+
+    recs = list(base)
+    if any(r["is_shortener"] for r in url_reports):
+        recs.append("Expand shortened links with a preview tool before opening them.")
+    if any(r["is_ip_literal"] for r in url_reports):
+        recs.append("Be cautious of links that point to raw IP addresses instead of named websites.")
+    return recs
+
+
+def _build_explanation(threat_level, rule_score, ml, indicators, url_reports):
+    parts = [f"Rule-based evidence produced a score of {rule_score}/100."]
+
+    if ml["available"]:
+        parts.append(
+            f"The spam classifier predicted '{ml['prediction']}' with "
+            f"{ml['spam_probability']:.1f}% spam probability."
+        )
+    else:
+        parts.append(
+            "The spam classifier was unavailable, so this assessment relies on "
+            "rule-based evidence only."
+        )
+
+    if url_reports:
+        worst = max(url_reports, key=lambda r: r["risk_points"])
+        if worst["risk_points"]:
+            parts.append(
+                f"The most suspicious link ({worst['hostname'] or worst['url']}) "
+                f"contributed {worst['risk_points']} risk points."
+            )
+        else:
+            parts.append("The included link(s) showed no strong structural risk signals.")
+
+    if not indicators:
+        parts.append("No known fraud indicators were found in this content.")
+
+    if threat_level in {"SAFE", "LOW_RISK"}:
+        uncertainty = (
+            "A low score is not a guarantee of safety. New scams may avoid known "
+            "patterns, and automated analysis cannot detect every threat."
+        )
+    elif ml["available"]:
+        uncertainty = (
+            "The spam classifier is a general SMS model and may be less accurate "
+            "on other languages or message types. Always verify independently."
+        )
+    else:
+        uncertainty = (
+            "Because the machine-learning model was unavailable, this assessment "
+            "may under- or over-estimate risk."
+        )
+
+    return " ".join(parts), uncertainty

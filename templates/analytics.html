@@ -1,233 +1,118 @@
 {% extends "base.html" %}
-
-
-{% block title %}
-Analytics | Digital Guardian
-{% endblock %}
-
+{% block title %}Analytics | Digital Guardian{% endblock %}
 
 {% block content %}
-
-
-<div class="dashboard">
-
-
-    <div class="dashboard-header">
-
-
-        <div>
-
-            <p class="muted">
-                THREAT INTELLIGENCE
-            </p>
-
-            <h1>
-                Security Analytics
-            </h1>
-
-        </div>
-
-
-    </div>
-
-
-
-    <div class="stats-grid">
-
-
-        <div class="stat-card">
-
-            <span>
-                TOTAL ANALYSED
-            </span>
-
-            <h2>
-                {{ total_scans }}
-            </h2>
-
-        </div>
-
-
-        <div class="stat-card">
-
-            <span>
-                AVERAGE RISK
-            </span>
-
-            <h2>
-                {{ average_risk }}/100
-            </h2>
-
-        </div>
-
-
-        <div class="stat-card">
-
-            <span>
-                RISKIEST CHANNEL
-            </span>
-
-            <h2 class="analytics-text">
-                {{ most_risky_channel }}
-            </h2>
-
-        </div>
-
-
-    </div>
-
-
-
-    <div class="analytics-grid">
-
-
-        <div class="dashboard-card">
-
-
-            <h3>
-                Threat Levels
-            </h3>
-
-
-            {% if level_counter %}
-
-
-                {% for name, count in level_counter.items() %}
-
-
-                    <div class="analytics-row">
-
-
-                        <span>
-                            {{ name }}
-                        </span>
-
-
-                        <strong>
-                            {{ count }}
-                        </strong>
-
-
-                    </div>
-
-
-                {% endfor %}
-
-
-            {% else %}
-
-
-                <p class="muted">
-                    No data available.
-                </p>
-
-
-            {% endif %}
-
-
-        </div>
-
-
-
-        <div class="dashboard-card">
-
-
-            <h3>
-                Scan Channels
-            </h3>
-
-
-            {% if channel_counter %}
-
-
-                {% for name, count in channel_counter.items() %}
-
-
-                    <div class="analytics-row">
-
-
-                        <span>
-                            {{ name }}
-                        </span>
-
-
-                        <strong>
-                            {{ count }}
-                        </strong>
-
-
-                    </div>
-
-
-                {% endfor %}
-
-
-            {% else %}
-
-
-                <p class="muted">
-                    No data available.
-                </p>
-
-
-            {% endif %}
-
-
-        </div>
-
-
-
-        <div class="dashboard-card">
-
-
-            <h3>
-                Scam Categories
-            </h3>
-
-
-            {% if category_counter %}
-
-
-                {% for name, count in category_counter.items() %}
-
-
-                    <div class="analytics-row">
-
-
-                        <span>
-                            {{ name }}
-                        </span>
-
-
-                        <strong>
-                            {{ count }}
-                        </strong>
-
-
-                    </div>
-
-
-                {% endfor %}
-
-
-            {% else %}
-
-
-                <p class="muted">
-                    No scam categories detected yet.
-                </p>
-
-
-            {% endif %}
-
-
-        </div>
-
-
-    </div>
-
-
+<div class="section-head">
+    <p class="eyebrow">Threat intelligence</p>
+    <h1>Security analytics</h1>
+    <p class="muted">All figures are calculated from your stored analyses.</p>
 </div>
 
+{% if total_scans == 0 %}
+    <div class="card empty-state">
+        <div class="es-icon" aria-hidden="true">📊</div>
+        <p>No data yet. Analytics appear once you have analysed some content.</p>
+        <a class="btn btn-primary" href="{{ url_for('web.scanner') }}">Analyse content</a>
+    </div>
+{% else %}
 
+<div class="grid grid-3 mb-2">
+    <div class="stat-card">
+        <div class="stat-label">Total analysed</div>
+        <div class="stat-value">{{ total_scans }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Average risk</div>
+        <div class="stat-value">{{ average_risk }}<span class="muted" style="font-size:1rem">/100</span></div>
+    </div>
+    <div class="stat-card accent-high">
+        <div class="stat-label">Riskiest channel</div>
+        <div class="stat-value" style="font-size:1.35rem">{{ most_risky_channel or '—' }}</div>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <div class="card-title"><h3 class="mt-0 mb-0">Last 7 days</h3></div>
+    {% set max_trend = (trend | map(attribute='count') | list | max) or 1 %}
+    {% set max_trend = 1 if max_trend == 0 else max_trend %}
+    <div class="trend-chart">
+        {% for point in trend %}
+        <div class="trend-bar" title="{{ point.date }} · {{ point.count }} scan(s) · avg {{ point.average_risk }}">
+            <span class="tb-label">{{ point.count }}</span>
+            <span class="tb-fill" style="height: {{ (point.count / max_trend * 120) | round(1) }}px"></span>
+            <span class="tb-label">{{ point.date[5:] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="grid grid-3">
+    <div class="card">
+        <h3>Threat levels</h3>
+        {% if level_counts %}
+            {% set lmax = (level_counts.values() | list | max) or 1 %}
+            <div class="bar-chart">
+                {% for name, count in level_counts.items() %}
+                <div class="bar-row">
+                    <span class="muted">{{ name | level_label }}</span>
+                    <span class="bar-track"><span class="bar-fill" style="width: {{ (count / lmax * 100) | round(1) }}%"></span></span>
+                    <strong class="text-right">{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}<p class="muted">No data.</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Input types</h3>
+        {% if type_counts %}
+            {% set tmax = (type_counts.values() | list | max) or 1 %}
+            <div class="bar-chart">
+                {% for name, count in type_counts.items() %}
+                <div class="bar-row">
+                    <span class="muted">{{ name|capitalize }}</span>
+                    <span class="bar-track"><span class="bar-fill" style="width: {{ (count / tmax * 100) | round(1) }}%"></span></span>
+                    <strong class="text-right">{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}<p class="muted">No data.</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Channels</h3>
+        {% if channel_counts %}
+            {% set cmax = (channel_counts.values() | list | max) or 1 %}
+            <div class="bar-chart">
+                {% for name, count in channel_counts.items() %}
+                <div class="bar-row">
+                    <span class="muted">{{ name }}</span>
+                    <span class="bar-track"><span class="bar-fill" style="width: {{ (count / cmax * 100) | round(1) }}%"></span></span>
+                    <strong class="text-right">{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}<p class="muted">No data.</p>{% endif %}
+    </div>
+</div>
+
+<div class="card mt-2">
+    <h3>Scam categories</h3>
+    {% if category_counts %}
+        {% set catmax = (category_counts.values() | list | max) or 1 %}
+        <div class="bar-chart">
+            {% for name, count in category_counts.items() %}
+            <div class="bar-row">
+                <span class="muted">{{ name }}</span>
+                <span class="bar-track"><span class="bar-fill" style="width: {{ (count / catmax * 100) | round(1) }}%"></span></span>
+                <strong class="text-right">{{ count }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="muted">No scam categories detected yet.</p>
+    {% endif %}
+</div>
+
+{% endif %}
 {% endblock %}

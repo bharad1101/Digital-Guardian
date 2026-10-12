@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Settings | Digital Guardian{% endblock %}
+
+{% block content %}
+<div class="section-head">
+    <p class="eyebrow">Account</p>
+    <h1>Settings</h1>
+    <p class="muted">Control your profile, privacy and history retention preferences.</p>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3>Profile &amp; preferences</h3>
+        <form method="POST" action="{{ url_for('web.settings') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="save">
+
+            <div class="field">
+                <label for="name">Display name</label>
+                <input id="name" type="text" name="name" value="{{ current_user.name }}" maxlength="100">
+            </div>
+
+            <div class="field">
+                <label for="email">Email address</label>
+                <input id="email" type="email" value="{{ current_user.email }}" disabled>
+                <p class="form-hint">Email cannot be changed from this page.</p>
+            </div>
+
+            <div class="checkbox-row">
+                <input id="notifications_enabled" type="checkbox" name="notifications_enabled"
+                       {% if user_settings.notifications_enabled %}checked{% endif %}>
+                <label for="notifications_enabled">Enable notifications for notable analysis events</label>
+            </div>
+
+            <div class="checkbox-row">
+                <input id="save_history" type="checkbox" name="save_history"
+                       {% if user_settings.save_history %}checked{% endif %}>
+                <label for="save_history">Save analyses to my history</label>
+            </div>
+
+            <div class="field">
+                <label for="retention_days">History retention (days)</label>
+                <input id="retention_days" type="number" name="retention_days" min="0"
+                       value="{{ user_settings.retention_days }}">
+                <p class="form-hint">0 keeps history until you delete it. A positive value lets the
+                    retention job remove older scans.</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save settings</button>
+        </form>
+    </div>
+
+    <div>
+        <div class="card">
+            <h3>Server capabilities</h3>
+            {% set caps = capabilities() %}
+            <div class="kv">
+                <div class="kv-item"><div class="k">ML classifier</div>
+                    <div class="v">{{ 'Available' if caps.ml else 'Unavailable' }}</div></div>
+                <div class="kv-item"><div class="k">OCR</div>
+                    <div class="v">{{ 'Available' if caps.ocr else 'Unavailable' }}</div></div>
+            </div>
+            <p class="form-hint">A capability marked “Unavailable” is disclosed rather than simulated.</p>
+        </div>
+
+        <div class="card">
+            <h3>Data &amp; privacy</h3>
+            <p class="muted">Uploaded images are never stored. You can delete individual scans from
+                History, or remove everything below.</p>
+            <form method="POST" action="{{ url_for('web.settings') }}"
+                  onsubmit="return confirm('Delete all of your scan history? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete_history">
+                <button type="submit" class="btn btn-danger">Delete all scan history</button>
+            </form>
+            <p class="mt-1"><a href="{{ url_for('web.privacy') }}">Read the privacy &amp; security notice</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

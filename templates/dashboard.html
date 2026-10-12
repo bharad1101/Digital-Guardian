@@ -1,365 +1,116 @@
 {% extends "base.html" %}
-
-
-{% block title %}
-Dashboard | Digital Guardian
-{% endblock %}
-
+{% block title %}Dashboard | Digital Guardian{% endblock %}
 
 {% block content %}
-
-
-<div class="dashboard">
-
-
-    <div class="dashboard-header">
-
-
-        <div>
-
-            <p class="muted">
-                CYBERSECURITY COMMAND CENTER
-            </p>
-
-            <h1>
-                Welcome, {{ current_user.name }}
-            </h1>
-
-        </div>
-
-
-        <form
-            method="POST"
-            action="{{ url_for('guardian_mode') }}"
-        >
-
-            {% if current_user.guardian_mode %}
-
-                <button class="guardian active">
-                    ● Guardian Mode ACTIVE
-                </button>
-
-            {% else %}
-
-                <button class="guardian inactive">
-                    ○ Guardian Mode PAUSED
-                </button>
-
-            {% endif %}
-
-        </form>
-
-
+<div class="section-head flex between center wrap">
+    <div>
+        <p class="eyebrow">Cybersecurity command center</p>
+        <h1 class="mb-0">Welcome, {{ current_user.name }}</h1>
     </div>
-
-
-
-    <div class="status-panel">
-
-
-        <div>
-
-            <p>
-                Protection Status
-            </p>
-
-            {% if current_user.guardian_mode %}
-
-                <h2 class="green">
-                    Protected
-                </h2>
-
-            {% else %}
-
-                <h2 class="red">
-                    Protection Paused
-                </h2>
-
-            {% endif %}
-
-        </div>
-
-
-        <div class="shield-score">
-
-            <div class="score-circle">
-
-                {{ guardian_score }}
-
-                <span>
-                    /100
-                </span>
-
-            </div>
-
-            <p>
-                Guardian Score
-            </p>
-
-        </div>
-
-
-    </div>
-
-
-
-    <div class="stats-grid">
-
-
-        <div class="stat-card">
-
-            <span>
-                TOTAL SCANS
-            </span>
-
-            <h2>
-                {{ total_scans }}
-            </h2>
-
-        </div>
-
-
-        <div class="stat-card safe-card">
-
-            <span>
-                SAFE
-            </span>
-
-            <h2>
-                {{ safe_scans }}
-            </h2>
-
-        </div>
-
-
-        <div class="stat-card suspicious-card">
-
-            <span>
-                SUSPICIOUS
-            </span>
-
-            <h2>
-                {{ suspicious_scans }}
-            </h2>
-
-        </div>
-
-
-        <div class="stat-card critical-card">
-
-            <span>
-                CRITICAL
-            </span>
-
-            <h2>
-                {{ critical_scans }}
-            </h2>
-
-        </div>
-
-
-    </div>
-
-
-
-    <div class="dashboard-grid">
-
-
-        <div class="dashboard-card">
-
-            <h3>
-                Quick Security Scan
-            </h3>
-
-            <p class="muted">
-                Analyse suspicious content from multiple channels.
-            </p>
-
-
-            <div class="scan-options">
-
-
-                <a href="{{ url_for('scanner') }}">
-                    💬 Message
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    🟢 WhatsApp
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    📧 Email
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    📞 Call
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    🔗 URL
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    ▦ QR Code
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    🖼 Screenshot
-                </a>
-
-
-                <a href="{{ url_for('scanner') }}">
-                    📄 File
-                </a>
-
-
-            </div>
-
-        </div>
-
-
-
-        <div class="dashboard-card">
-
-            <h3>
-                Guardian Intelligence
-            </h3>
-
-
-            <p>
-
-                <strong>
-                    Average Risk:
-                </strong>
-
-                {{ average_risk }}/100
-
-            </p>
-
-
-            <p>
-
-                <strong>
-                    Most Used Channel:
-                </strong>
-
-                {{ most_common_channel }}
-
-            </p>
-
-
-            <p>
-
-                <strong>
-                    Most Common Threat:
-                </strong>
-
-                {{ most_common_category }}
-
-            </p>
-
-
-        </div>
-
-
-    </div>
-
-
-
-    <div class="dashboard-card conclusion-card">
-
-
-        <h3>
-            🧠 AI Security Conclusion
-        </h3>
-
-
-        <p>
-            {{ conclusion }}
-        </p>
-
-
-    </div>
-
-
-
-    <div class="dashboard-card recent">
-
-
-        <div class="section-header">
-
-            <h3>
-                Recent Threat Activity
-            </h3>
-
-
-            <a href="{{ url_for('history') }}">
-
-                View All
-
-            </a>
-
-        </div>
-
-
-        {% if scans %}
-
-
-            {% for scan in scans %}
-
-
-                <div class="recent-row">
-
-
-                    <span>
-                        {{ scan.channel }}
-                    </span>
-
-
-                    <span>
-                        {{ scan.scam_category }}
-                    </span>
-
-
-                    <span>
-                        {{ scan.risk_score }}/100
-                    </span>
-
-
-                    <span>
-                        {{ scan.threat_level }}
-                    </span>
-
-
-                </div>
-
-
-            {% endfor %}
-
-
+    <form method="POST" action="{{ url_for('web.guardian_mode') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if current_user.guardian_mode %}
+            <button class="guardian-toggle on" type="submit" title="Click to pause Guardian Mode">
+                ● Guardian Mode ON
+            </button>
         {% else %}
-
-
-            <p class="muted">
-
-                No scan history available yet.
-
-            </p>
-
-
+            <button class="guardian-toggle off" type="submit" title="Click to activate Guardian Mode">
+                ○ Guardian Mode PAUSED
+            </button>
         {% endif %}
-
-
-    </div>
-
-
+    </form>
 </div>
 
+<div class="grid grid-4 mb-2">
+    <div class="stat-card">
+        <div class="stat-label">Total analyses</div>
+        <div class="stat-value">{{ total_scans }}</div>
+    </div>
+    <div class="stat-card accent-critical">
+        <div class="stat-label">High / critical</div>
+        <div class="stat-value">{{ high_risk_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Average risk</div>
+        <div class="stat-value">{{ average_risk }}<span class="muted" style="font-size:1rem">/100</span></div>
+    </div>
+    <div class="stat-card accent-safe">
+        <div class="stat-label">Guardian score</div>
+        <div class="stat-value">{{ guardian_score }}<span class="muted" style="font-size:1rem">/100</span></div>
+    </div>
+</div>
 
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-title"><h3 class="mt-0 mb-0">Quick actions</h3></div>
+        <div class="quick-grid">
+            <a class="quick-tile" href="{{ url_for('web.scanner') }}">
+                <span class="qt-icon">💬</span>
+                <span class="qt-label">Message</span>
+                <span class="qt-desc">SMS, WhatsApp, email, call text</span>
+            </a>
+            <a class="quick-tile" href="{{ url_for('web.scanner') }}">
+                <span class="qt-icon">🔗</span>
+                <span class="qt-label">URL</span>
+                <span class="qt-desc">Inspect a suspicious link</span>
+            </a>
+            <a class="quick-tile" href="{{ url_for('web.lens') }}">
+                <span class="qt-icon">▦</span>
+                <span class="qt-label">Guardian Lens</span>
+                <span class="qt-desc">Scan / upload a QR code</span>
+            </a>
+            <a class="quick-tile" href="{{ url_for('web.image_scanner') }}">
+                <span class="qt-icon">🖼️</span>
+                <span class="qt-label">Image</span>
+                <span class="qt-desc">Screenshots &amp; QR images</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><h3 class="mt-0 mb-0">Risk distribution</h3></div>
+        {% set max_count = (level_counts.values() | list | max) if level_counts.values() | list | max > 0 else 1 %}
+        <div class="bar-chart">
+            {% for level in ['CRITICAL','HIGH_RISK','SUSPICIOUS','LOW_RISK','SAFE'] %}
+            <div class="bar-row">
+                <span class="muted">{{ level | level_label }}</span>
+                <span class="bar-track">
+                    <span class="bar-fill" style="width: {{ (level_counts[level] / max_count * 100) | round(1) }}%"></span>
+                </span>
+                <strong class="text-right">{{ level_counts[level] }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="muted mt-2 mb-0">
+            Most used channel: <strong class="dim">{{ most_common_channel or '—' }}</strong><br>
+            Most common category: <strong class="dim">{{ most_common_category or '—' }}</strong>
+        </p>
+    </div>
+</div>
+
+<div class="card mt-2">
+    <div class="callout"><strong>Assessment: </strong>{{ conclusion }}</div>
+</div>
+
+<div class="card mt-2">
+    <div class="card-title">
+        <h3 class="mt-0 mb-0">Recent activity</h3>
+        <a href="{{ url_for('web.history') }}">View all</a>
+    </div>
+    {% if recent %}
+        {% for scan in recent %}
+        <div class="list-row">
+            <span class="muted">{{ scan.created_at | dt }}</span>
+            <span>{{ scan.input_type|capitalize }} · {{ scan.threat_type or '—' }}</span>
+            <span class="risk-badge {{ scan.threat_level | level_class }}">{{ scan.threat_level | level_label }}</span>
+            <span class="text-right"><a href="{{ url_for('web.result_detail', scan_id=scan.id) }}">Details</a></span>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="es-icon" aria-hidden="true">🛡️</div>
+            <p>No analyses yet. Run your first scan to build your security profile.</p>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}
