@@ -33,6 +33,27 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-insecure-secret-change-me")
     ENV = os.getenv("FLASK_ENV", "development")
 
+        # -- Database -----------------------------------------------------
+    _database_url = os.getenv(
+        "DATABASE_URL",
+        "sqlite:///" + str(BASE_DIR / "instance" / "digital_guardian.db"),
+    )
+
+    # Use PyMySQL for hosted MySQL connections.
+    if _database_url.startswith("mysql://"):
+        _database_url = _database_url.replace(
+            "mysql://", "mysql+pymysql://", 1
+        ).split("?", 1)[0]
+
+    SQLALCHEMY_DATABASE_URI = _database_url
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
+
+    if _database_url.startswith("mysql+pymysql://"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+            "ssl": {"check_hostname": True}
+        }
+
     # -- Database -----------------------------------------------------
     # SQLite by default; set DATABASE_URL for PostgreSQL in production.
     SQLALCHEMY_DATABASE_URI = os.getenv(
